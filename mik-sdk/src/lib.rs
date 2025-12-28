@@ -31,6 +31,8 @@
 //! mik-sdk provides a simple, ergonomic way to build portable WASI HTTP handlers.
 //! Write your handler once, run it on Spin, wasmCloud, wasmtime, or any WASI-compliant runtime.
 //!
+//! Available on [crates.io](https://crates.io/crates/mik-sdk).
+//!
 //! # Architecture
 //!
 //! ```text
