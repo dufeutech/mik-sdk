@@ -1,6 +1,6 @@
 [package]
 name = "external-api"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
 publish = false
 description = "Example demonstrating external HTTP API calls with fetch! macro"

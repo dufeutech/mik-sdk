@@ -5,6 +5,13 @@
 
 ### Features
 
+* initial release of mik-sdk ([c902e78](https://github.com/dufeut/mik-sdk/commit/c902e7841fe2e47fed4f7a22ac263a445556d6af))
+
+## 0.1.0 (2025-12-28)
+
+
+### Features
+
 * add SQL query builder ([8c05156](https://github.com/dufeut/mik-sdk/commit/8c05156eaef94be31e8ab45b9b40fbfd0f2a0203))
 
 

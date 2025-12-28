@@ -1,6 +1,10 @@
 {
-  "mik-sql-macros": "0.0.0",
-  "mik-sql": "0.0.0",
-  "mik-sdk-macros": "0.0.0",
-  "mik-sdk": "0.0.0"
+  "mik-sql-macros": "0.1.0",
+  "mik-sql": "0.1.0",
+  "mik-sdk-macros": "0.1.0",
+  "mik-sdk": "0.1.0",
+  "examples/auth-api": "0.0.2",
+  "examples/crud-api": "0.0.2",
+  "examples/external-api": "0.0.2",
+  "examples/hello-world": "0.0.2"
 }

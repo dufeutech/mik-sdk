@@ -1,6 +1,6 @@
 [package]
 name = "crud-api"
-version = "0.0.1"
+version = "0.0.2"
 edition.workspace = true
 publish = false
 description = "Example CRUD API demonstrating REST patterns and error handling"
