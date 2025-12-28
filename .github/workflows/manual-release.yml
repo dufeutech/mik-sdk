@@ -89,7 +89,7 @@ jobs:
 
       - name: Build mik-bridge
         working-directory: mik-bridge
-        run: cargo component build --release --target wasm32-wasip2
+        run: cargo component build --release
 
       - name: Install oras
         run: |
@@ -106,10 +106,10 @@ jobs:
           VERSION="${{ inputs.version }}"
           oras push ghcr.io/dufeut/mik-sdk-bridge:${VERSION} \
             --artifact-type application/vnd.wasm.component.v1+wasm \
-            mik-bridge/target/wasm32-wasip2/release/mik_bridge.wasm:application/wasm
+            mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm:application/wasm
           oras push ghcr.io/dufeut/mik-sdk-bridge:latest \
             --artifact-type application/vnd.wasm.component.v1+wasm \
-            mik-bridge/target/wasm32-wasip2/release/mik_bridge.wasm:application/wasm
+            mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm:application/wasm
 
   create-release:
     name: Create GitHub Release
@@ -129,9 +129,9 @@ jobs:
 
       - name: Build bridge for release artifact
         run: |
-          cd mik-bridge && cargo component build --release --target wasm32-wasip2
+          cd mik-bridge && cargo component build --release
           mkdir -p ../artifacts
-          cp target/wasm32-wasip2/release/mik_bridge.wasm ../artifacts/mik-bridge.wasm
+          cp target/wasm32-wasip1/release/mik_bridge.wasm ../artifacts/mik-bridge.wasm
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
