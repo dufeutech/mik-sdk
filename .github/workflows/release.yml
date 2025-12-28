@@ -91,7 +91,7 @@ jobs:
 
       - name: Build mik-bridge
         working-directory: mik-bridge
-        run: cargo component build --release
+        run: cargo component build --release --target wasm32-wasip2
 
       - name: Install oras
         run: |
@@ -131,7 +131,7 @@ jobs:
 
       - name: Build bridge for release artifact
         run: |
-          cd mik-bridge && cargo component build --release
+          cd mik-bridge && cargo component build --release --target wasm32-wasip2
           mkdir -p ../artifacts
           cp target/wasm32-wasip2/release/mik_bridge.wasm ../artifacts/mik-bridge.wasm
 
