@@ -1,8 +1,20 @@
-# mik-sdk
+<p align="center">
+  <img src="docs/src/assets/logo.png" alt="mik" width="180" />
+</p>
 
-**Portable WASI HTTP SDK using Component Composition**
+<h1 align="center">mik-sdk</h1>
 
-Write handlers once, run on any WASI-compliant runtime.
+<p align="center">
+  <strong>Portable WASI HTTP SDK using Component Composition</strong><br>
+  <span>Write handlers once, run on any WASI-compliant runtime.</span>  
+</p>
+
+<p align="center">
+  <a href="https://dufeut.github.io/mik-sdk/">Docs</a> &bull;
+  <a href="https://crates.io/crates/mik-sdk">Crates.io</a> &bull;
+  <a href="LICENSE">MIT License</a>
+</p>
+
 
 ## Overview
 
