@@ -5,9 +5,22 @@ description: Error handling with ParseError and ValidationError
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Error Types
-
 mik-sdk provides two error types for input parsing and validation: `ParseError` and `ValidationError`.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+
+// For direct error type access
+use mik_sdk::typed::{ParseError, ValidationError};
+```
+
+The error types are available via `mik_sdk::typed::ParseError` and `mik_sdk::typed::ValidationError`.
 
 ## ParseError
 

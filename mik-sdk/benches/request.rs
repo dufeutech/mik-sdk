@@ -2,9 +2,10 @@
 //!
 //! Run with: cargo bench -p mik-sdk -- request
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use mik_sdk::{Method, Request};
 use std::collections::HashMap;
+use std::hint::black_box;
 
 // =============================================================================
 // Query String Parsing Benchmarks

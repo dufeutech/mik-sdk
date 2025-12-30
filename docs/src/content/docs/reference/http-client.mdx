@@ -5,9 +5,19 @@ description: Making outbound HTTP requests with the fetch! macro
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# HTTP Client
-
 mik-sdk provides an HTTP client for making outbound requests to external services. Enable it with the `http-client` feature.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `fetch!` macro is included in `mik_sdk::prelude::*` when the `http-client` feature is enabled.
 
 ## Setup
 
@@ -15,7 +25,7 @@ Add the feature to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mik-sdk = { git = "...", features = ["http-client"] }
+mik-sdk = { version = "0.1", features = ["http-client"] }
 ```
 
 ## Basic Requests

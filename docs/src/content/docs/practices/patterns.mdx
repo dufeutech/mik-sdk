@@ -5,9 +5,19 @@ description: Reusable patterns for mik-sdk handlers
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Common Patterns
-
 A collection of patterns for common tasks in mik-sdk handlers.
+
+## Required Imports
+
+All examples assume these imports:
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
 
 ## Service Communication
 

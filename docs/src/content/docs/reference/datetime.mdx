@@ -5,9 +5,19 @@ description: Time utilities for timestamps and ISO 8601 formatting
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Date & Time
-
 The `time` module provides utilities for working with timestamps and date formatting.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `time` module is included in `mik_sdk::prelude::*`.
 
 ## Platform Support
 

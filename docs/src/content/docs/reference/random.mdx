@@ -5,9 +5,19 @@ description: Cryptographically secure random value generation
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Random
-
 The `random` module provides cryptographically secure random value generation using platform-native sources.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `random` module is included in `mik_sdk::prelude::*`.
 
 ## Platform Support
 

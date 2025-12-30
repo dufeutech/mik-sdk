@@ -2,8 +2,9 @@
 //!
 //! Run with: cargo bench -p mik-sdk -- json
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use mik_sdk::json;
+use std::hint::black_box;
 
 // =============================================================================
 // Test Data Generation

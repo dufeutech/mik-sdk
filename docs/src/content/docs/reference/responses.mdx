@@ -5,9 +5,19 @@ description: Response macros and building HTTP responses
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Responses
-
 mik-sdk provides a rich set of macros for building HTTP responses with proper status codes, headers, and JSON bodies.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `Response` type comes from the `bindings` module. All response macros (`ok!`, `created!`, `error!`, etc.) are included in `mik_sdk::prelude::*`.
 
 ## Success Responses
 

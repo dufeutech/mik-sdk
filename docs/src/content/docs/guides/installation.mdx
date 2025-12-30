@@ -5,8 +5,6 @@ description: Set up your development environment for mik-sdk
 
 import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
-# Installation
-
 This guide walks you through setting up your development environment to build WASI HTTP handlers with mik-sdk.
 
 ## Prerequisites
@@ -65,7 +63,7 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-mik-sdk = { git = "https://github.com/hlop3z/mik-sdk" }
+mik-sdk = "0.1"
 
 [package.metadata.component]
 package = "my:handler"
@@ -111,13 +109,13 @@ mik-sdk provides optional features:
 ```toml
 [dependencies]
 # Default (includes SQL macros)
-mik-sdk = { git = "https://github.com/hlop3z/mik-sdk" }
+mik-sdk = "0.1"
 
 # With HTTP client for outbound requests
-mik-sdk = { git = "https://github.com/hlop3z/mik-sdk", features = ["http-client"] }
+mik-sdk = { version = "0.1", features = ["http-client"] }
 
 # Without SQL (smaller binary)
-mik-sdk = { git = "https://github.com/hlop3z/mik-sdk", default-features = false }
+mik-sdk = { version = "0.1", default-features = false }
 ```
 
 | Feature | Default | Description |

@@ -5,8 +5,6 @@ description: Common issues and solutions when working with mik-sdk
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Troubleshooting
-
 This guide covers common issues you may encounter when developing with mik-sdk and their solutions.
 
 ## Build Issues
@@ -236,7 +234,7 @@ error: cannot find macro `fetch` in this scope
 
 ```toml
 [dependencies]
-mik-sdk = { git = "...", features = ["http-client"] }
+mik-sdk = { version = "0.1", features = ["http-client"] }
 ```
 
 ### Request Timeout
@@ -325,7 +323,7 @@ cargo component build --release
 2. **Disable unused features:**
 ```toml
 [dependencies]
-mik-sdk = { git = "...", default-features = false }
+mik-sdk = { version = "0.1", default-features = false }
 ```
 
 3. **Enable LTO:**

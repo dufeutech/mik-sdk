@@ -5,9 +5,19 @@ description: Structured JSON logging to stderr
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Logging
-
 mik-sdk provides structured JSON logging to stderr, compatible with major log aggregation systems.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `log` module and macros are included in `mik_sdk::prelude::*`.
 
 ## Output Format
 

@@ -5,9 +5,19 @@ description: Best practices for designing mik-sdk services
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Service Design
-
 Guidelines for designing effective WASI HTTP handlers with mik-sdk.
+
+## Required Imports
+
+All examples assume these imports:
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
 
 ## Architecture Principles
 

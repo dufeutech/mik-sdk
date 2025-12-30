@@ -5,9 +5,19 @@ description: Building reusable helper functions for mik-sdk handlers
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Custom Helpers
-
 Patterns for creating reusable helper functions in your handlers.
+
+## Required Imports
+
+All examples assume these imports:
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
 
 ## Authentication Helpers
 

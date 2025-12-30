@@ -5,9 +5,19 @@ description: Environment variable access
 
 import { Aside } from '@astrojs/starlight/components';
 
-# Environment
-
 The `env` module provides simple access to environment variables.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `env` module is included in `mik_sdk::prelude::*`.
 
 ## Getting Variables
 

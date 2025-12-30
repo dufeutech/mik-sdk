@@ -2,9 +2,10 @@
 //!
 //! Run with: cargo bench -p mik-sql
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use mik_sql::{Cursor, Filter, FilterValidator, Operator, SortDir, Value, postgres, sqlite};
 use mik_sql::{is_valid_sql_expression, is_valid_sql_identifier};
+use std::hint::black_box;
 
 // =============================================================================
 // SQL Validation Benchmarks

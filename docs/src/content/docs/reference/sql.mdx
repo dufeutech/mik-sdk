@@ -5,9 +5,22 @@ description: Generate parameterized SQL queries with Mongo-style filters
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# SQL Macros
-
 mik-sdk includes a SQL query builder that generates parameterized queries with Mongo-style filter syntax. The generated SQL can be executed by your database sidecar service.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+
+// For cursor pagination
+use mik_sdk::query::{Cursor, PageInfo, Value};
+```
+
+The SQL macros (`sql_read!`, `sql_create!`, `sql_update!`, `sql_delete!`) are included in `mik_sdk::prelude::*` when the `sql` feature is enabled (enabled by default).
 
 ## Overview
 

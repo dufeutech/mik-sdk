@@ -5,9 +5,19 @@ description: HTTP request handling and data extraction
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-# Request
-
 The `Request` struct provides access to all HTTP request data including path parameters, query strings, headers, and body.
+
+## Required Imports
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+```
+
+The `Request` type is included in `mik_sdk::prelude::*`.
 
 ## Basic Access
 
