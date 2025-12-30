@@ -159,3 +159,571 @@ pub(super) fn build_condition_impl<D: Dialect>(
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dialect::{Postgres, Sqlite};
+
+    #[test]
+    fn test_eq_null_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "deleted_at".to_string(),
+            op: Operator::Eq,
+            value: Value::Null,
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "deleted_at IS NULL");
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_ne_null_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "deleted_at".to_string(),
+            op: Operator::Ne,
+            value: Value::Null,
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "deleted_at IS NOT NULL");
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_in_array_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "status".to_string(),
+            op: Operator::In,
+            value: Value::Array(vec![
+                Value::String("active".to_string()),
+                Value::String("pending".to_string()),
+            ]),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "status = ANY($1)");
+        assert_eq!(params.len(), 1);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_in_array_sqlite() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "status".to_string(),
+            op: Operator::In,
+            value: Value::Array(vec![
+                Value::String("active".to_string()),
+                Value::String("pending".to_string()),
+            ]),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "status IN (?1, ?2)");
+        assert_eq!(params.len(), 2);
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_not_in_array_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "status".to_string(),
+            op: Operator::NotIn,
+            value: Value::Array(vec![Value::String("deleted".to_string())]),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "status != ALL($1)");
+        assert_eq!(params.len(), 1);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_not_in_array_sqlite() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "status".to_string(),
+            op: Operator::NotIn,
+            value: Value::Array(vec![
+                Value::String("deleted".to_string()),
+                Value::String("archived".to_string()),
+            ]),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "status NOT IN (?1, ?2)");
+        assert_eq!(params.len(), 2);
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_eq_bool_true_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "active".to_string(),
+            op: Operator::Eq,
+            value: Value::Bool(true),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "active = $1");
+        assert_eq!(params, vec![Value::Bool(true)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_ne_bool_sqlite() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "verified".to_string(),
+            op: Operator::Ne,
+            value: Value::Bool(false),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "verified != ?1");
+        assert_eq!(params, vec![Value::Bool(false)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_regex_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "email".to_string(),
+            op: Operator::Regex,
+            value: Value::String("^[a-z]+@".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "email ~ $1");
+        assert_eq!(params, vec![Value::String("^[a-z]+@".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_regex_sqlite() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "email".to_string(),
+            op: Operator::Regex,
+            value: Value::String("%@example%".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "email LIKE ?1");
+        assert_eq!(params, vec![Value::String("%@example%".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_ilike_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "name".to_string(),
+            op: Operator::ILike,
+            value: Value::String("%john%".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "name ILIKE $1");
+        assert_eq!(params, vec![Value::String("%john%".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_ilike_sqlite() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "name".to_string(),
+            op: Operator::ILike,
+            value: Value::String("%john%".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "name LIKE ?1");
+        assert_eq!(params, vec![Value::String("%john%".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_starts_with_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "name".to_string(),
+            op: Operator::StartsWith,
+            value: Value::String("John".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert!(sql.contains("LIKE"));
+        assert_eq!(params, vec![Value::String("John".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_ends_with_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "email".to_string(),
+            op: Operator::EndsWith,
+            value: Value::String("@example.com".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert!(sql.contains("LIKE"));
+        assert_eq!(params, vec![Value::String("@example.com".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_contains_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "description".to_string(),
+            op: Operator::Contains,
+            value: Value::String("rust".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert!(sql.contains("LIKE"));
+        assert_eq!(params, vec![Value::String("rust".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_between_postgres() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "age".to_string(),
+            op: Operator::Between,
+            value: Value::Array(vec![Value::Int(18), Value::Int(65)]),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "age BETWEEN $1 AND $2");
+        assert_eq!(params, vec![Value::Int(18), Value::Int(65)]);
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_between_invalid_single() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "age".to_string(),
+            op: Operator::Between,
+            value: Value::Array(vec![Value::Int(18)]),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert!(sql.contains("1=0"));
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_between_invalid_empty() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "count".to_string(),
+            op: Operator::Between,
+            value: Value::Array(vec![]),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert!(sql.contains("1=0"));
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_eq_int() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "id".to_string(),
+            op: Operator::Eq,
+            value: Value::Int(42),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "id = $1");
+        assert_eq!(params, vec![Value::Int(42)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_ne_string() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "status".to_string(),
+            op: Operator::Ne,
+            value: Value::String("deleted".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "status != ?1");
+        assert_eq!(params, vec![Value::String("deleted".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_gt_int() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "age".to_string(),
+            op: Operator::Gt,
+            value: Value::Int(18),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "age > $1");
+        assert_eq!(params, vec![Value::Int(18)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_gte_float() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "price".to_string(),
+            op: Operator::Gte,
+            value: Value::Float(9.99),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "price >= ?1");
+        assert_eq!(params, vec![Value::Float(9.99)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_lt_int() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "quantity".to_string(),
+            op: Operator::Lt,
+            value: Value::Int(100),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "quantity < $1");
+        assert_eq!(params, vec![Value::Int(100)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_lte_float() {
+        let sqlite = Sqlite;
+        let filter = Filter {
+            field: "discount".to_string(),
+            op: Operator::Lte,
+            value: Value::Float(0.5),
+        };
+        let (sql, params, idx) = build_condition_impl(&sqlite, &filter, 1);
+        assert_eq!(sql, "discount <= ?1");
+        assert_eq!(params, vec![Value::Float(0.5)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_like() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "name".to_string(),
+            op: Operator::Like,
+            value: Value::String("%smith%".to_string()),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "name LIKE $1");
+        assert_eq!(params, vec![Value::String("%smith%".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_compound_and_single() {
+        let pg = Postgres;
+        let compound = CompoundFilter {
+            op: LogicalOp::And,
+            filters: vec![FilterExpr::Simple(Filter {
+                field: "active".to_string(),
+                op: Operator::Eq,
+                value: Value::Bool(true),
+            })],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&pg, &compound, 1);
+        assert_eq!(sql, "active = $1");
+        assert_eq!(params, vec![Value::Bool(true)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_compound_and_multiple() {
+        let pg = Postgres;
+        let compound = CompoundFilter {
+            op: LogicalOp::And,
+            filters: vec![
+                FilterExpr::Simple(Filter {
+                    field: "active".to_string(),
+                    op: Operator::Eq,
+                    value: Value::Bool(true),
+                }),
+                FilterExpr::Simple(Filter {
+                    field: "age".to_string(),
+                    op: Operator::Gte,
+                    value: Value::Int(18),
+                }),
+            ],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&pg, &compound, 1);
+        assert_eq!(sql, "(active = $1 AND age >= $2)");
+        assert_eq!(params, vec![Value::Bool(true), Value::Int(18)]);
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_compound_or_single() {
+        let sqlite = Sqlite;
+        let compound = CompoundFilter {
+            op: LogicalOp::Or,
+            filters: vec![FilterExpr::Simple(Filter {
+                field: "status".to_string(),
+                op: Operator::Eq,
+                value: Value::String("active".to_string()),
+            })],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&sqlite, &compound, 1);
+        assert_eq!(sql, "status = ?1");
+        assert_eq!(params, vec![Value::String("active".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_compound_or_multiple() {
+        let sqlite = Sqlite;
+        let compound = CompoundFilter {
+            op: LogicalOp::Or,
+            filters: vec![
+                FilterExpr::Simple(Filter {
+                    field: "status".to_string(),
+                    op: Operator::Eq,
+                    value: Value::String("active".to_string()),
+                }),
+                FilterExpr::Simple(Filter {
+                    field: "status".to_string(),
+                    op: Operator::Eq,
+                    value: Value::String("pending".to_string()),
+                }),
+            ],
+        };
+        let (sql, _params, idx) = build_compound_filter_impl(&sqlite, &compound, 1);
+        assert_eq!(sql, "(status = ?1 OR status = ?2)");
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_compound_not() {
+        let pg = Postgres;
+        let compound = CompoundFilter {
+            op: LogicalOp::Not,
+            filters: vec![FilterExpr::Simple(Filter {
+                field: "deleted".to_string(),
+                op: Operator::Eq,
+                value: Value::Bool(true),
+            })],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&pg, &compound, 1);
+        assert_eq!(sql, "NOT (deleted = $1)");
+        assert_eq!(params, vec![Value::Bool(true)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_compound_not_empty() {
+        let pg = Postgres;
+        let compound = CompoundFilter {
+            op: LogicalOp::Not,
+            filters: vec![],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&pg, &compound, 1);
+        assert_eq!(sql, "NOT ()");
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_filter_expr_simple() {
+        let pg = Postgres;
+        let expr = FilterExpr::Simple(Filter {
+            field: "name".to_string(),
+            op: Operator::Eq,
+            value: Value::String("test".to_string()),
+        });
+        let (sql, params, idx) = build_filter_expr_impl(&pg, &expr, 1);
+        assert_eq!(sql, "name = $1");
+        assert_eq!(params, vec![Value::String("test".to_string())]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_filter_expr_compound() {
+        let sqlite = Sqlite;
+        let expr = FilterExpr::Compound(CompoundFilter {
+            op: LogicalOp::Or,
+            filters: vec![
+                FilterExpr::Simple(Filter {
+                    field: "a".to_string(),
+                    op: Operator::Eq,
+                    value: Value::Int(1),
+                }),
+                FilterExpr::Simple(Filter {
+                    field: "b".to_string(),
+                    op: Operator::Eq,
+                    value: Value::Int(2),
+                }),
+            ],
+        });
+        let (sql, params, idx) = build_filter_expr_impl(&sqlite, &expr, 1);
+        assert_eq!(sql, "(a = ?1 OR b = ?2)");
+        assert_eq!(params, vec![Value::Int(1), Value::Int(2)]);
+        assert_eq!(idx, 3);
+    }
+
+    #[test]
+    fn test_compound_and_empty() {
+        let pg = Postgres;
+        let compound = CompoundFilter {
+            op: LogicalOp::And,
+            filters: vec![],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&pg, &compound, 1);
+        assert_eq!(sql, "()");
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_compound_or_empty() {
+        let sqlite = Sqlite;
+        let compound = CompoundFilter {
+            op: LogicalOp::Or,
+            filters: vec![],
+        };
+        let (sql, params, idx) = build_compound_filter_impl(&sqlite, &compound, 1);
+        assert_eq!(sql, "()");
+        assert!(params.is_empty());
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_fallback_operator() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "test".to_string(),
+            op: Operator::In,
+            value: Value::Int(42),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "test = $1");
+        assert_eq!(params, vec![Value::Int(42)]);
+        assert_eq!(idx, 2);
+    }
+
+    #[test]
+    fn test_between_non_array_fallback() {
+        let pg = Postgres;
+        let filter = Filter {
+            field: "value".to_string(),
+            op: Operator::Between,
+            value: Value::Int(50),
+        };
+        let (sql, params, idx) = build_condition_impl(&pg, &filter, 1);
+        assert_eq!(sql, "value = $1");
+        assert_eq!(params, vec![Value::Int(50)]);
+        assert_eq!(idx, 2);
+    }
+}
