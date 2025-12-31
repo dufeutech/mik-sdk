@@ -391,7 +391,17 @@ fn test_413_payload_too_large() {
                     assert_eq!(json["title"], "Payload Too Large");
                 }
             }
-            Err(e) => panic!("Unexpected error: {e}"),
+            Err(ureq::Error::Transport(t)) => {
+                // Server may close connection before client finishes sending 11MB.
+                // This is valid HTTP behavior for early rejection of oversized payloads.
+                let msg = t.to_string().to_lowercase();
+                assert!(
+                    msg.contains("broken pipe")
+                        || msg.contains("connection reset")
+                        || msg.contains("connection closed"),
+                    "Expected connection closed/reset, got: {t}"
+                );
+            }
         }
     });
 }
