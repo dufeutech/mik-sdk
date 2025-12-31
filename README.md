@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Portable WASI HTTP SDK using Component Composition</strong><br>
-  <span>Write handlers once, run on any WASI-compliant runtime.</span>  
+  <span>Write handlers once, run on wasmtime, Spin, wasmCloud, or any WASI-compliant runtime.</span>
 </p>
 
 <p align="center">
@@ -18,27 +18,36 @@
 </p>
 
 <p align="center">
-  <a href="https://dufeut.github.io/mik-sdk/">Docs</a> &bull;
-  <a href="https://crates.io/crates/mik-sdk">Crates.io</a> &bull;
-  <a href="LICENSE">MIT License</a>
+  <a href="https://dufeut.github.io/mik-sdk/">Documentation</a> ·
+  <a href="https://github.com/dufeut/mik-sdk/tree/main/examples">Examples</a>
 </p>
 
+---
 
-## Overview
+## Why mik-sdk?
 
-mik-sdk provides an ergonomic way to build portable WebAssembly HTTP handlers. It uses a two-component architecture where your handler logic is composed with a bridge component that handles WASI HTTP translation.
+- **Write once, run anywhere** — Your handlers work on wasmtime, Spin, wasmCloud, and any WASI P2 runtime without code changes.
+- **Type-safe by default** — Path params, query strings, and JSON bodies are parsed and validated at compile time.
+- **Tiny footprint** — Composed components are ~250KB. No bloat, no unnecessary dependencies.
+
+## Quick Example
 
 ```rust
 use mik_sdk::prelude::*;
 
+#[derive(Path)]
+struct HelloPath { name: String }
+
+#[derive(Type)]
+struct HelloResponse { greeting: String }
+
 routes! {
     GET "/" => home,
-    GET "/hello/{name}" => hello(path: HelloPath),
-    POST "/users" => create_user(body: CreateInput),
+    GET "/hello/{name}" => hello(path: HelloPath) -> HelloResponse,
 }
 
 fn home(_req: &Request) -> Response {
-    ok!({ "message": "Welcome to mik-sdk!" })
+    ok!({ "message": "Welcome!" })
 }
 
 fn hello(path: HelloPath, _req: &Request) -> Response {
@@ -46,106 +55,96 @@ fn hello(path: HelloPath, _req: &Request) -> Response {
 }
 ```
 
-## Features
-
-- **Type-safe routing** with automatic path, query, and body extraction
-- **Pure Rust JSON** parsing and building (no external calls)
-- **Derive macros** for input types (`#[derive(Type)]`, `#[derive(Path)]`, `#[derive(Query)]`)
-- **Response helpers** (`ok!`, `error!`, `created!`, `no_content!`, `redirect!`)
-- **SQL query builder** with Mongo-style filter syntax
-- **Cursor pagination** for efficient database queries
-- **HTTP client** with SSRF protection
-- **Structured logging** compatible with major log aggregators
-- **Time and random utilities** using native WASI interfaces
-- **Minimal compiled size** (~200KB composed component)
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Your Handler Component                                 │
-│  - Uses mik_sdk::prelude::*                             │
-│  - Exports mik:core/handler interface                   │
-└─────────────────────────────────────────────────────────┘
-                          ↓ compose with
-┌─────────────────────────────────────────────────────────┐
-│  Bridge Component (mik-bridge)                          │
-│  - Translates WASI HTTP to mik handler                  │
-│  - Handles request/response conversion                  │
-└─────────────────────────────────────────────────────────┘
-                          ↓ runs on
-┌─────────────────────────────────────────────────────────┐
-│  Any WASI HTTP Runtime                                  │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Rust 1.85+ with `wasm32-wasip2` target
-- [cargo-component](https://github.com/bytecodealliance/cargo-component)
-- [wac](https://github.com/bytecodealliance/wac) for component composition
-
-### Installation
-
-Add to your `Cargo.toml`:
+## Installation
 
 ```toml
-[package]
-name = "my-handler"
-version = "0.1.0"
-edition = "2024"
-
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 mik-sdk = "0.1"
-
-[package.metadata.component]
-package = "my:handler"
 ```
 
-### Build and Compose
+Requires Rust 1.85+ with `wasm32-wasip2` target and [cargo-component](https://github.com/bytecodealliance/cargo-component).
+
+## Build & Run
 
 ```bash
 # Build your handler
 cargo component build --release
 
-# Compose with bridge
+# Compose with the bridge component
 wac plug mik-bridge.wasm --plug target/wasm32-wasip2/release/my_handler.wasm -o service.wasm
+
+# Run on wasmtime
+wasmtime serve -S cli=y service.wasm
+
+# Or run on Spin
+spin up --from service.wasm
 ```
 
-## Documentation
+## Features
 
-Full documentation is available at [docs/](./docs/).
+**Routing & Inputs**
+- `routes!` macro with typed path, query, and body extraction
+- `#[derive(Path)]`, `#[derive(Query)]`, `#[derive(Type)]` for input types
+- Automatic 400 errors for invalid inputs
 
-- [Installation Guide](./docs/src/content/docs/guides/installation.mdx)
-- [Quick Start](./docs/src/content/docs/guides/quickstart.mdx)
-- [Routing](./docs/src/content/docs/guides/routing.mdx)
-- [API Reference](./docs/src/content/docs/reference/)
+**Responses**
+- `ok!`, `created!`, `no_content!`, `redirect!` for common responses
+- `error!` for RFC 7807 Problem Details
+- `guard!`, `ensure!` for early returns
+
+**Built-in Utilities**
+- Pure Rust JSON (no external calls)
+- `time::now()`, `time::now_iso()` via WASI clocks
+- `random::uuid()`, `random::hex()` via WASI random
+- Structured logging with `log!`
+
+**Optional Features**
+- `http-client` — Outbound HTTP with `fetch!` macro and SSRF protection
+- `sql` — Query builder with Mongo-style filters and cursor pagination
 
 ## Examples
 
-See the [examples/](./examples/) directory:
+| Example                                 | Description                                |
+| --------------------------------------- | ------------------------------------------ |
+| [hello-world](examples/hello-world)     | Minimal handler with path and query params |
+| [crud-api](examples/crud-api)           | REST API with SQL builder and pagination   |
+| [auth-api](examples/auth-api)           | Authentication patterns                    |
+| [external-api](examples/external-api)   | Outbound HTTP with `fetch!`                |
+| [resilient-api](examples/resilient-api) | Retry, fallback, rate limiting             |
 
-- **hello-world** - Minimal handler with typed path/query inputs
-- **crud-api** - REST API with SQL query builder and pagination
-- **auth-api** - Authentication patterns and JWT handling
-- **external-api** - Outbound HTTP calls with `fetch!` macro
-- **resilient-api** - Resilience patterns: retry, fallback, rate limiting
+## Architecture
 
-## Crate Structure
+mik-sdk uses a two-component architecture for maximum portability:
 
-| Crate            | Description                                        |
-| ---------------- | -------------------------------------------------- |
-| `mik-sdk`        | Main SDK with routing, JSON, time, random, logging |
-| `mik-sdk-macros` | Procedural macros for routing and derive           |
-| `mik-sql`        | SQL query builder with Mongo-style filters         |
-| `mik-sql-macros` | SQL CRUD macros                                    |
-| `mik-bridge`     | WASI HTTP adapter component                        |
-| `mik-wit`        | WIT interface definitions                          |
+```
+┌─────────────────────────────────────────────────────────┐
+│  Your Handler                                           │
+│  exports mik:core/handler                               │
+└─────────────────────────────────────────────────────────┘
+                          ↓ compose
+┌─────────────────────────────────────────────────────────┐
+│  mik-bridge                                             │
+│  WASI HTTP ↔ mik:core/handler translation               │
+└─────────────────────────────────────────────────────────┘
+                          ↓ runs on
+┌─────────────────────────────────────────────────────────┐
+│  wasmtime · Spin · wasmCloud · any WASI HTTP runtime    │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Crates
+
+| Crate                                       | Description                                     |
+| ------------------------------------------- | ----------------------------------------------- |
+| [mik-sdk](https://crates.io/crates/mik-sdk) | Core SDK — routing, JSON, time, random, logging |
+| [mik-sql](https://crates.io/crates/mik-sql) | SQL query builder with Mongo-style filters      |
+
+## Resources
+
+- [Documentation](https://dufeut.github.io/mik-sdk/) — Guides, reference, and best practices
+- [API Reference (docs.rs)](https://docs.rs/mik-sdk) — Rust API documentation
+- [Examples](https://github.com/dufeut/mik-sdk/tree/main/examples) — Complete working examples
+- [Contributing](CONTRIBUTING.md) — How to contribute
 
 ## License
 
