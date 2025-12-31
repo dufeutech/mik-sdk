@@ -1,6 +1,7 @@
 #![allow(missing_docs)] // Example crate - documentation not required
 #![allow(clippy::exhaustive_structs)] // Example types are internal, not published APIs
 #![allow(clippy::indexing_slicing)] // Example code uses indexing
+#![allow(unsafe_code)] // Required for generated WIT bindings
 //! Auth API Example - Authentication patterns, error handling, and logging.
 //!
 //! Demonstrates real-world patterns:

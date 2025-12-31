@@ -41,7 +41,8 @@ panic = "abort"
 
 # Workspace-wide lint configuration (standalone workspace)
 [workspace.lints.rust]
-unsafe_code = "warn"
+# Allow unsafe in generated WIT bindings (required for WASM exports)
+unsafe_code = "allow"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

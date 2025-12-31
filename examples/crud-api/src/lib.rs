@@ -1,6 +1,7 @@
 #![allow(clippy::cast_possible_wrap)] // usize to i64 is fine for this example
 #![allow(missing_docs)] // Example crate - documentation not required
 #![allow(clippy::exhaustive_structs)] // Example types are internal, not published APIs
+#![allow(unsafe_code)] // Required for generated WIT bindings
 
 //! CRUD API Example - Demonstrates REST patterns with typed inputs.
 //!

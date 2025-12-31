@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 #![allow(clippy::doc_markdown)]
 #![allow(clippy::exhaustive_structs)]
+#![allow(unsafe_code)] // Required for generated WIT bindings
 //! Resilient API Example - Production-grade error handling patterns.
 //!
 //! Demonstrates real-world resilience patterns for external HTTP calls:
