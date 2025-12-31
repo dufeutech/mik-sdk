@@ -155,7 +155,7 @@ jobs:
           key: spin-v3.0
       - name: Install Spin
         if: matrix.runtime == 'spin'
-        uses: fermyon/actions/spin/setup@v2
+        uses: fermyon/actions/spin/setup@v1
         with:
           version: v3.0.0
       - uses: Swatinem/rust-cache@v2
