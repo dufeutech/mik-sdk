@@ -1,4 +1,14 @@
-error: Path derive only supports structs with named fields. Example: `struct UserPath { org_id: String, id: String }`
+error: Oops! #[derive(Path)] needs named fields, not tuple fields.
+
+       ❌ What you have (tuple struct):
+       struct MyStruct(String, i32);
+
+       ✅ What you need (named fields):
+       #[derive(Path)]
+       struct UserPath { org_id: String, id: String }
+
+       Named fields have names like 'id', 'name', 'email' - they make
+       your code easier to read and work with JSON/query params.
  --> tests/ui/derive/path_on_tuple_struct.rs:5:1
   |
 5 | struct PathTuple(String);

@@ -3,8 +3,21 @@
 //! This module provides convenient functions for generating random values
 //! using the runtime's cryptographic random number generator.
 //!
-//! - **WASM:** Uses `wasi:random/random` directly
-//! - **Native (tests only):** Uses OS entropy via getrandom crate
+//! # Platform Support
+//!
+//! | Platform | Implementation | Notes |
+//! |----------|----------------|-------|
+//! | **WASM** | `wasi:random/random` | Production - uses runtime's secure RNG |
+//! | **Native (tests)** | `getrandom` crate | Testing only - uses OS entropy |
+//! | **Native (non-test)** | Compile stub | Panics at runtime with helpful message |
+//!
+//! # Why WASM-only?
+//!
+//! This SDK is designed for WASI HTTP handlers that run on wasmtime, Spin, or wasmCloud.
+//! The random functions use `wasi:random/random` for cryptographic randomness in WASM.
+//!
+//! Native builds compile (so `cargo check` works) but panic at runtime with a clear
+//! error message directing you to compile for `wasm32-wasip2`.
 //!
 //! # Security
 //!
@@ -32,6 +45,11 @@
 //! assert_eq!(token.len(), 32); // 16 bytes = 32 hex characters
 //! ```
 
+// =============================================================================
+// WASM IMPLEMENTATION (Production)
+// Uses wasi:random/random for cryptographic randomness
+// =============================================================================
+
 /// Generate cryptographically secure random bytes.
 ///
 /// Uses the runtime's secure random number generator:
@@ -41,6 +59,7 @@
 /// # Panics
 ///
 /// Panics if the underlying RNG fails (extremely rare, indicates critical system issue).
+/// On native non-test builds, always panics with a message to use WASM target.
 ///
 /// # Examples
 ///
@@ -48,12 +67,16 @@
 /// let key = mik_sdk::random::bytes(32);
 /// assert_eq!(key.len(), 32);
 /// ```
-// WASM target: use native wasi:random/random
 #[must_use]
 #[cfg(target_arch = "wasm32")]
 pub fn bytes(len: usize) -> Vec<u8> {
     crate::wasi_http::wasi::random::random::get_random_bytes(len as u64)
 }
+
+// =============================================================================
+// NATIVE TEST IMPLEMENTATION
+// Uses getrandom crate for OS entropy (dev-dependency)
+// =============================================================================
 
 /// Generate cryptographically secure random bytes (native test implementation).
 #[must_use]
@@ -64,18 +87,46 @@ pub fn bytes(len: usize) -> Vec<u8> {
     buf
 }
 
+// =============================================================================
+// NATIVE NON-TEST STUBS
+// These compile but panic at runtime - allows cargo check/build to work
+// =============================================================================
+
+/// Stub for native non-test builds. Panics with helpful error message.
+#[must_use]
+#[cfg(all(not(target_arch = "wasm32"), not(test)))]
+pub fn bytes(_len: usize) -> Vec<u8> {
+    panic!(
+        "\n\
+        ╔══════════════════════════════════════════════════════════════════╗\n\
+        ║  random::bytes() is only available in WASM builds                ║\n\
+        ╠══════════════════════════════════════════════════════════════════╣\n\
+        ║                                                                  ║\n\
+        ║  This SDK is designed for WASI HTTP handlers.                    ║\n\
+        ║  Random functions use wasi:random/random in WASM.                ║\n\
+        ║                                                                  ║\n\
+        ║  To build for WASM:                                              ║\n\
+        ║    cargo component build --target wasm32-wasip2                  ║\n\
+        ║                                                                  ║\n\
+        ║  Or run tests (which use getrandom):                             ║\n\
+        ║    cargo test                                                    ║\n\
+        ║                                                                  ║\n\
+        ╚══════════════════════════════════════════════════════════════════╝\n"
+    )
+}
+
 /// Generate a cryptographically secure random u64.
 ///
 /// # Panics
 ///
 /// Panics if the underlying RNG fails (extremely rare, indicates critical system issue).
+/// On native non-test builds, always panics with a message to use WASM target.
 ///
 /// # Examples
 ///
 /// ```ignore
 /// let id = mik_sdk::random::u64();
 /// ```
-// WASM target: use native wasi:random/random
 #[must_use]
 #[cfg(target_arch = "wasm32")]
 pub fn u64() -> u64 {
@@ -91,6 +142,26 @@ pub fn u64() -> u64 {
     u64::from_le_bytes(buf)
 }
 
+/// Stub for native non-test builds. Panics with helpful error message.
+#[must_use]
+#[cfg(all(not(target_arch = "wasm32"), not(test)))]
+pub fn u64() -> u64 {
+    panic!(
+        "\n\
+        ╔══════════════════════════════════════════════════════════════════╗\n\
+        ║  random::u64() is only available in WASM builds                  ║\n\
+        ╠══════════════════════════════════════════════════════════════════╣\n\
+        ║                                                                  ║\n\
+        ║  This SDK is designed for WASI HTTP handlers.                    ║\n\
+        ║  Random functions use wasi:random/random in WASM.                ║\n\
+        ║                                                                  ║\n\
+        ║  To build for WASM:                                              ║\n\
+        ║    cargo component build --target wasm32-wasip2                  ║\n\
+        ║                                                                  ║\n\
+        ╚══════════════════════════════════════════════════════════════════╝\n"
+    )
+}
+
 /// Generate a UUID v4 string.
 ///
 /// Returns a standard UUID v4 format: `xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`
@@ -99,6 +170,7 @@ pub fn u64() -> u64 {
 /// # Panics
 ///
 /// Panics if the underlying RNG fails (extremely rare, indicates critical system issue).
+/// On native non-test builds, always panics with a message to use WASM target.
 ///
 /// # Examples
 ///
@@ -140,11 +212,32 @@ pub fn uuid() -> String {
     )
 }
 
+/// Stub for native non-test builds. Panics with helpful error message.
+#[must_use]
+#[cfg(all(not(target_arch = "wasm32"), not(test)))]
+pub fn uuid() -> String {
+    panic!(
+        "\n\
+        ╔══════════════════════════════════════════════════════════════════╗\n\
+        ║  random::uuid() is only available in WASM builds                 ║\n\
+        ╠══════════════════════════════════════════════════════════════════╣\n\
+        ║                                                                  ║\n\
+        ║  This SDK is designed for WASI HTTP handlers.                    ║\n\
+        ║  Random functions use wasi:random/random in WASM.                ║\n\
+        ║                                                                  ║\n\
+        ║  To build for WASM:                                              ║\n\
+        ║    cargo component build --target wasm32-wasip2                  ║\n\
+        ║                                                                  ║\n\
+        ╚══════════════════════════════════════════════════════════════════╝\n"
+    )
+}
+
 /// Generate a random hexadecimal string.
 ///
 /// # Panics
 ///
 /// Panics if the underlying RNG fails (extremely rare, indicates critical system issue).
+/// On native non-test builds, always panics with a message to use WASM target.
 ///
 /// # Examples
 ///
@@ -164,6 +257,26 @@ pub fn hex(byte_len: usize) -> String {
         result.push(HEX_CHARS[(b & 0x0f) as usize] as char);
     }
     result
+}
+
+/// Stub for native non-test builds. Panics with helpful error message.
+#[must_use]
+#[cfg(all(not(target_arch = "wasm32"), not(test)))]
+pub fn hex(_byte_len: usize) -> String {
+    panic!(
+        "\n\
+        ╔══════════════════════════════════════════════════════════════════╗\n\
+        ║  random::hex() is only available in WASM builds                  ║\n\
+        ╠══════════════════════════════════════════════════════════════════╣\n\
+        ║                                                                  ║\n\
+        ║  This SDK is designed for WASI HTTP handlers.                    ║\n\
+        ║  Random functions use wasi:random/random in WASM.                ║\n\
+        ║                                                                  ║\n\
+        ║  To build for WASM:                                              ║\n\
+        ║    cargo component build --target wasm32-wasip2                  ║\n\
+        ║                                                                  ║\n\
+        ╚══════════════════════════════════════════════════════════════════╝\n"
+    )
 }
 
 #[cfg(test)]

@@ -1,4 +1,14 @@
-error: Query derive only supports structs with named fields. Example: `struct MyQuery { page: u32, limit: u32 }`
+error: Oops! #[derive(Query)] needs named fields, not tuple fields.
+
+       ❌ What you have (tuple struct):
+       struct MyStruct(String, i32);
+
+       ✅ What you need (named fields):
+       #[derive(Query)]
+       struct MyQuery { page: u32, limit: u32 }
+
+       Named fields have names like 'id', 'name', 'email' - they make
+       your code easier to read and work with JSON/query params.
  --> tests/ui/derive/query_on_tuple_struct.rs:5:1
   |
 5 | struct QueryTuple(String);

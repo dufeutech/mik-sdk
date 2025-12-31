@@ -1,4 +1,13 @@
-error: Path derive only supports structs. Hint: Use `#[derive(Path)]` on a struct for URL path parameters.
+error: Oops! #[derive(Path)] only works on structs, not enums.
+
+       ❌ What you have:
+       enum MyEnum { A, B, C }
+
+       ✅ What you need:
+       #[derive(Path)]
+       struct UserPath { org_id: String, id: String }
+
+       Path needs a struct for URL path parameters.
  --> tests/ui/derive/path_on_enum.rs:5:1
   |
 5 | / enum PathParams {

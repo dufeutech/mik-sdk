@@ -1,4 +1,14 @@
-error: Type derive only supports structs with named fields. Example: `struct MyType { field: String }`
+error: Oops! #[derive(Type)] needs named fields, not tuple fields.
+
+       ❌ What you have (tuple struct):
+       struct MyStruct(String, i32);
+
+       ✅ What you need (named fields):
+       #[derive(Type)]
+       struct MyType { field: String }
+
+       Named fields have names like 'id', 'name', 'email' - they make
+       your code easier to read and work with JSON/query params.
  --> tests/ui/derive/type_on_tuple_struct.rs:5:1
   |
 5 | struct MyTuple(String, i32);

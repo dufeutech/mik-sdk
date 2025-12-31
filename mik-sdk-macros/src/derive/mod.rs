@@ -70,37 +70,120 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("min") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Int(lit) = value {
-                    result.min = lit.base10_parse().ok();
+                match value {
+                    Lit::Int(lit) => {
+                        result.min = lit.base10_parse().ok();
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "min needs a number!\n\
+                             \n\
+                             ✅ Correct: #[field(min = 1)]\n\
+                             ❌ Wrong:   #[field(min = \"1\")]",
+                        ));
+                    },
                 }
             } else if meta.path.is_ident("max") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Int(lit) = value {
-                    result.max = lit.base10_parse().ok();
+                match value {
+                    Lit::Int(lit) => {
+                        result.max = lit.base10_parse().ok();
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "max needs a number!\n\
+                             \n\
+                             ✅ Correct: #[field(max = 100)]\n\
+                             ❌ Wrong:   #[field(max = \"100\")]",
+                        ));
+                    },
                 }
             } else if meta.path.is_ident("format") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Str(lit) = value {
-                    result.format = Some(lit.value());
+                match value {
+                    Lit::Str(lit) => {
+                        result.format = Some(lit.value());
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "format needs a string!\n\
+                             \n\
+                             ✅ Correct: #[field(format = \"email\")]\n\
+                             ❌ Wrong:   #[field(format = email)]",
+                        ));
+                    },
                 }
             } else if meta.path.is_ident("pattern") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Str(lit) = value {
-                    result.pattern = Some(lit.value());
+                match value {
+                    Lit::Str(lit) => {
+                        result.pattern = Some(lit.value());
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "pattern needs a string (regex)!\n\
+                             \n\
+                             ✅ Correct: #[field(pattern = r\"^[a-z]+$\")]\n\
+                             ❌ Wrong:   #[field(pattern = ^[a-z]+$)]",
+                        ));
+                    },
                 }
             } else if meta.path.is_ident("default") {
                 let value: Expr = meta.value()?.parse()?;
                 result.default = Some(quote!(#value).to_string());
             } else if meta.path.is_ident("rename") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Str(lit) = value {
-                    result.rename = Some(lit.value());
+                match value {
+                    Lit::Str(lit) => {
+                        result.rename = Some(lit.value());
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "rename needs a string!\n\
+                             \n\
+                             ✅ Correct: #[field(rename = \"userName\")]\n\
+                             ❌ Wrong:   #[field(rename = userName)]",
+                        ));
+                    },
                 }
             } else if meta.path.is_ident("docs") {
                 let value: Lit = meta.value()?.parse()?;
-                if let Lit::Str(lit) = value {
-                    result.docs = Some(lit.value());
+                match value {
+                    Lit::Str(lit) => {
+                        result.docs = Some(lit.value());
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "docs needs a string!\n\
+                             \n\
+                             ✅ Correct: #[field(docs = \"The user's email\")]",
+                        ));
+                    },
                 }
+            } else {
+                let path = &meta.path;
+                return Err(syn::Error::new_spanned(
+                    path,
+                    format!(
+                        "Unknown field attribute '{}'.\n\
+                         \n\
+                         ✅ Valid attributes:\n\
+                         #[field(min = 1)]           // minimum value/length\n\
+                         #[field(max = 100)]         // maximum value/length\n\
+                         #[field(default = 10)]      // default value\n\
+                         #[field(format = \"email\")] // format hint (OpenAPI)\n\
+                         #[field(pattern = \"...\")]  // regex pattern (OpenAPI)\n\
+                         #[field(rename = \"...\")]   // JSON key name\n\
+                         #[field(docs = \"...\")]     // description",
+                        quote!(#path)
+                    ),
+                ));
             }
             Ok(())
         })?;
@@ -216,10 +299,11 @@ pub fn rust_type_to_name(ty: &Type) -> &'static str {
 // STRUCT FIELD EXTRACTION HELPER
 // ============================================================================
 
-/// Context for derive macro error messages
+/// Context for derive macro error messages (Query and Path only)
+///
+/// Note: Type derive handles its own error messages since it supports both structs and enums.
 #[derive(Clone, Copy)]
 pub enum DeriveContext {
-    Type,
     Query,
     Path,
 }
@@ -227,7 +311,6 @@ pub enum DeriveContext {
 impl DeriveContext {
     const fn name(self) -> &'static str {
         match self {
-            Self::Type => "Type",
             Self::Query => "Query",
             Self::Path => "Path",
         }
@@ -235,7 +318,6 @@ impl DeriveContext {
 
     const fn example(self) -> &'static str {
         match self {
-            Self::Type => "struct MyType { field: String }",
             Self::Query => "struct MyQuery { page: u32, limit: u32 }",
             Self::Path => "struct UserPath { org_id: String, id: String }",
         }
@@ -243,7 +325,6 @@ impl DeriveContext {
 
     const fn purpose(self) -> &'static str {
         match self {
-            Self::Type => "for JSON body/response types",
             Self::Query => "for query parameters",
             Self::Path => "for URL path parameters",
         }
@@ -258,11 +339,41 @@ pub fn extract_named_fields(
     match &input.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => Ok(&fields.named),
-            _ => Err(syn::Error::new_spanned(
+            Fields::Unnamed(_) => Err(syn::Error::new_spanned(
                 input,
                 format!(
-                    "{} derive only supports structs with named fields. \
-                     Example: `{}`",
+                    "Oops! #[derive({})] needs named fields, not tuple fields.\n\
+                     \n\
+                     ❌ What you have (tuple struct):\n\
+                       struct MyStruct(String, i32);\n\
+                     \n\
+                     ✅ What you need (named fields):\n\
+                       #[derive({})]\n\
+                       {}\n\
+                     \n\
+                     Named fields have names like 'id', 'name', 'email' - they make\n\
+                     your code easier to read and work with JSON/query params.",
+                    ctx.name(),
+                    ctx.name(),
+                    ctx.example()
+                ),
+            )
+            .to_compile_error()
+            .into()),
+            Fields::Unit => Err(syn::Error::new_spanned(
+                input,
+                format!(
+                    "Oops! #[derive({})] needs a struct with fields.\n\
+                     \n\
+                     ❌ What you have (empty struct):\n\
+                       struct MyStruct;\n\
+                     \n\
+                     ✅ What you need:\n\
+                       #[derive({})]\n\
+                       {}\n\
+                     \n\
+                     Add some fields to hold your data!",
+                    ctx.name(),
                     ctx.name(),
                     ctx.example()
                 ),
@@ -270,12 +381,41 @@ pub fn extract_named_fields(
             .to_compile_error()
             .into()),
         },
-        _ => Err(syn::Error::new_spanned(
+        Data::Enum(_) => Err(syn::Error::new_spanned(
             input,
             format!(
-                "{} derive only supports structs. \
-                 Hint: Use `#[derive({})]` on a struct {}.",
+                "Oops! #[derive({})] only works on structs, not enums.\n\
+                 \n\
+                 ❌ What you have:\n\
+                   enum MyEnum {{ A, B, C }}\n\
+                 \n\
+                 ✅ What you need:\n\
+                   #[derive({})]\n\
+                   {}\n\
+                 \n\
+                 {} needs a struct {}.",
                 ctx.name(),
+                ctx.name(),
+                ctx.example(),
+                ctx.name(),
+                ctx.purpose()
+            ),
+        )
+        .to_compile_error()
+        .into()),
+        Data::Union(_) => Err(syn::Error::new_spanned(
+            input,
+            format!(
+                "Oops! #[derive({})] only works on structs, not unions.\n\
+                 \n\
+                 ✅ What you need:\n\
+                   #[derive({})]\n\
+                   {}\n\
+                 \n\
+                 {} needs a struct {}.",
+                ctx.name(),
+                ctx.name(),
+                ctx.example(),
                 ctx.name(),
                 ctx.purpose()
             ),
