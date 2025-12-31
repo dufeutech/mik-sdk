@@ -59,6 +59,11 @@ use std::collections::HashMap;
 /// let numeric_id = Id::new("42");
 /// let parsed: i64 = numeric_id.parse().unwrap();
 /// assert_eq!(parsed, 42);
+///
+/// // Get owned String if needed
+/// let id = Id::new("user_456");
+/// let inner: String = id.into_inner();
+/// assert_eq!(inner, "user_456");
 /// ```
 ///
 /// # Why String?
@@ -71,7 +76,7 @@ use std::collections::HashMap;
 /// - Snowflake/ULID: `"01ARZ3NDEKTSV4RRFFQ69G5FAV"`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
-pub struct Id(pub String);
+pub struct Id(String);
 
 impl Id {
     /// Create a new Id from a string.
@@ -84,6 +89,23 @@ impl Id {
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Consume the Id and return the inner String.
+    ///
+    /// Use this when you need ownership of the underlying string.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use mik_sdk::typed::Id;
+    /// let id = Id::new("user_123");
+    /// let inner: String = id.into_inner();
+    /// assert_eq!(inner, "user_123");
+    /// ```
+    #[inline]
+    pub fn into_inner(self) -> String {
+        self.0
     }
 
     /// Parse the ID as a specific type.
@@ -384,7 +406,6 @@ mod tests {
     fn test_id_new_and_as_str() {
         let id = Id::new("user_123");
         assert_eq!(id.as_str(), "user_123");
-        assert_eq!(id.0, "user_123");
     }
 
     #[test]
@@ -397,7 +418,14 @@ mod tests {
     fn test_id_empty_string() {
         let id = Id::new("");
         assert_eq!(id.as_str(), "");
-        assert!(id.0.is_empty());
+        assert!(id.as_str().is_empty());
+    }
+
+    #[test]
+    fn test_id_into_inner() {
+        let id = Id::new("user_123");
+        let inner = id.into_inner();
+        assert_eq!(inner, "user_123");
     }
 
     #[test]

@@ -80,37 +80,90 @@ pub fn __format_timestamp() -> String {
 
 /// Internal: format timestamp from seconds and milliseconds.
 /// Exposed for testing the date calculation algorithm.
+///
+/// # Algorithm
+///
+/// Uses Howard Hinnant's civil_from_days algorithm for converting days since
+/// Unix epoch (1970-01-01) to year/month/day. This is a well-tested, efficient
+/// algorithm used in many date libraries.
+///
+/// Reference: <https://howardhinnant.github.io/date_algorithms.html#civil_from_days>
 #[doc(hidden)]
 #[must_use]
 #[allow(clippy::similar_names)] // doe/doy are standard date algorithm abbreviations
 pub fn __format_timestamp_from_duration(secs: u64, millis: u32) -> String {
     use crate::constants::{SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE};
 
+    // Split timestamp into days and time-of-day components
     let days = secs / SECONDS_PER_DAY;
     let remaining = secs % SECONDS_PER_DAY;
 
+    // Extract hours, minutes, seconds from time-of-day
     let hours = remaining / SECONDS_PER_HOUR;
     let remaining = remaining % SECONDS_PER_HOUR;
     let minutes = remaining / SECONDS_PER_MINUTE;
     let seconds = remaining % SECONDS_PER_MINUTE;
 
-    // Calculate year, month, day from days since epoch
-    // Using algorithm from: https://howardhinnant.github.io/date_algorithms.html
+    // ========================================================================
+    // Howard Hinnant's civil_from_days algorithm
+    // Converts days since Unix epoch to (year, month, day)
+    // ========================================================================
+
+    // Shift epoch from 1970-01-01 to 0000-03-01 (simplifies leap year math)
+    // 719468 = days from 0000-03-01 to 1970-01-01
     let z = days + 719468;
+
+    // Calculate era (400-year cycle). Each era has exactly 146097 days.
+    // 146097 = 365*400 + 97 leap days (97 = 400/4 - 400/100 + 400/400)
     let era = z / 146097;
+
+    // Day-of-era: 0 to 146096
     let doe = z - era * 146097;
+
+    // Year-of-era: 0 to 399
+    // The formula accounts for leap years:
+    // - Every 4 years is a leap year (subtract doe/1460)
+    // - Except every 100 years (add doe/36524)
+    // - Except every 400 years (subtract doe/146096)
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+
+    // Absolute year (from year 0)
     let y = yoe + era * 400;
+
+    // Day-of-year: 0 to 365
+    // Subtracts the days in previous years of this era
     let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+
+    // Month calculation using the "30.6 rule" (months avg ~30.6 days Mar-Feb)
+    // mp ranges 0-11, representing Mar(0) to Feb(11)
     let mp = (5 * doy + 2) / 153;
+
+    // Day-of-month: 1 to 31
+    // 153 = sum of days in 5-month groups (Mar-Jul or Aug-Dec)
     let d = doy - (153 * mp + 2) / 5 + 1;
+
+    // Convert month from Mar=0..Feb=11 to Jan=1..Dec=12
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
+
+    // Adjust year for Jan/Feb (they belong to the next calendar year in this algorithm)
     let year = if m <= 2 { y + 1 } else { y };
 
     format!("{year:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
 }
 
-/// Escape a string for JSON output.
+/// Escape a string for JSON output per RFC 7159.
+///
+/// Handles quotes, backslashes, and control characters.
+///
+/// # Note: Intentional Duplication
+///
+/// This function is duplicated in `mik-bridge/src/lib.rs` as `escape_json_string()`.
+/// This is intentional because:
+/// - `mik-bridge` is a standalone WASM component that cannot depend on `mik-sdk`
+/// - `mik-sdk` cannot depend on `mik-bridge` (it's the other way around)
+/// - Creating a shared crate for ~20 lines of code adds unnecessary complexity
+///
+/// If you modify this function, please update the duplicate in `mik-bridge` too.
 #[doc(hidden)]
 #[must_use]
 pub fn __escape_json(s: &str) -> String {
@@ -153,8 +206,8 @@ macro_rules! log_info {
         let timestamp = $crate::log::__format_timestamp();
         let msg = $crate::log::__escape_json(&format!($($arg)*));
         let log_line = format!(
-            r#"{{"timestamp":"{}","level":"info","message":"{}"}}"#,
-            timestamp, msg
+            r#"{{"level":"info","msg":"{}","ts":"{}"}}"#,
+            msg, timestamp
         );
         let _ = writeln!(std::io::stderr(), "{}", log_line);
     }};
@@ -176,8 +229,8 @@ macro_rules! log_warn {
         let timestamp = $crate::log::__format_timestamp();
         let msg = $crate::log::__escape_json(&format!($($arg)*));
         let log_line = format!(
-            r#"{{"timestamp":"{}","level":"warn","message":"{}"}}"#,
-            timestamp, msg
+            r#"{{"level":"warn","msg":"{}","ts":"{}"}}"#,
+            msg, timestamp
         );
         let _ = writeln!(std::io::stderr(), "{}", log_line);
     }};
@@ -199,8 +252,8 @@ macro_rules! log_error {
         let timestamp = $crate::log::__format_timestamp();
         let msg = $crate::log::__escape_json(&format!($($arg)*));
         let log_line = format!(
-            r#"{{"timestamp":"{}","level":"error","message":"{}"}}"#,
-            timestamp, msg
+            r#"{{"level":"error","msg":"{}","ts":"{}"}}"#,
+            msg, timestamp
         );
         let _ = writeln!(std::io::stderr(), "{}", log_line);
     }};
@@ -226,8 +279,8 @@ macro_rules! log_debug {
             let timestamp = $crate::log::__format_timestamp();
             let msg = $crate::log::__escape_json(&format!($($arg)*));
             let log_line = format!(
-                r#"{{"timestamp":"{}","level":"debug","message":"{}"}}"#,
-                timestamp, msg
+                r#"{{"level":"debug","msg":"{}","ts":"{}"}}"#,
+                msg, timestamp
             );
             let _ = writeln!(std::io::stderr(), "{}", log_line);
         }

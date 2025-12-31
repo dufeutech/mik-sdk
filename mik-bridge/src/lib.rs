@@ -318,9 +318,19 @@ fn read_body(req: &IncomingRequest) -> BodyResult {
     }
 }
 
-/// Escape a string for JSON output per RFC 7158.
+/// Escape a string for JSON output per RFC 7159.
 ///
 /// Handles quotes, backslashes, and control characters.
+///
+/// # Note: Intentional Duplication
+///
+/// This function is duplicated in `mik-sdk/src/log.rs` as `__escape_json()`.
+/// This is intentional because:
+/// - `mik-bridge` is a standalone WASM component that cannot depend on `mik-sdk`
+/// - `mik-sdk` cannot depend on `mik-bridge` (it's the other way around)
+/// - Creating a shared crate for ~20 lines of code adds unnecessary complexity
+///
+/// If you modify this function, please update the duplicate in `mik-sdk` too.
 fn escape_json_string(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     for c in s.chars() {
@@ -373,3 +383,137 @@ fn send_error_response(response_out: ResponseOutparam, status: u16, title: &str,
 }
 
 bindings::export!(Bridge with_types_in bindings);
+
+// ============================================================================
+// UNIT TESTS
+// ============================================================================
+// Note: These tests run on native (not WASM) and test pure functions only.
+// Integration tests for the full WASI HTTP flow require a WASM runtime.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========================================================================
+    // status_title tests
+    // ========================================================================
+
+    #[test]
+    fn test_status_title_common_codes() {
+        assert_eq!(status_title(400), "Bad Request");
+        assert_eq!(status_title(401), "Unauthorized");
+        assert_eq!(status_title(403), "Forbidden");
+        assert_eq!(status_title(404), "Not Found");
+        assert_eq!(status_title(405), "Method Not Allowed");
+        assert_eq!(status_title(413), "Payload Too Large");
+        assert_eq!(status_title(422), "Unprocessable Entity");
+        assert_eq!(status_title(429), "Too Many Requests");
+        assert_eq!(status_title(500), "Internal Server Error");
+        assert_eq!(status_title(501), "Not Implemented");
+        assert_eq!(status_title(502), "Bad Gateway");
+        assert_eq!(status_title(503), "Service Unavailable");
+    }
+
+    #[test]
+    fn test_status_title_unknown_codes() {
+        assert_eq!(status_title(418), "Error"); // I'm a teapot
+        assert_eq!(status_title(599), "Error");
+        assert_eq!(status_title(100), "Error");
+        assert_eq!(status_title(200), "Error");
+        assert_eq!(status_title(301), "Error");
+    }
+
+    // ========================================================================
+    // escape_json_string tests
+    // ========================================================================
+
+    #[test]
+    fn test_escape_json_simple() {
+        assert_eq!(escape_json_string("hello"), "hello");
+        assert_eq!(escape_json_string("hello world"), "hello world");
+    }
+
+    #[test]
+    fn test_escape_json_quotes() {
+        assert_eq!(escape_json_string(r#"say "hello""#), r#"say \"hello\""#);
+    }
+
+    #[test]
+    fn test_escape_json_backslash() {
+        assert_eq!(escape_json_string(r"path\to\file"), r"path\\to\\file");
+    }
+
+    #[test]
+    fn test_escape_json_newlines_tabs() {
+        assert_eq!(escape_json_string("line1\nline2"), "line1\\nline2");
+        assert_eq!(escape_json_string("col1\tcol2"), "col1\\tcol2");
+        assert_eq!(escape_json_string("line1\rline2"), "line1\\rline2");
+    }
+
+    #[test]
+    fn test_escape_json_control_chars() {
+        let input = "\x00\x01\x1f";
+        let escaped = escape_json_string(input);
+        assert!(escaped.contains("\\u0000"));
+        assert!(escaped.contains("\\u0001"));
+        assert!(escaped.contains("\\u001f"));
+    }
+
+    #[test]
+    fn test_escape_json_unicode() {
+        // Unicode should pass through unchanged
+        assert_eq!(escape_json_string("日本語"), "日本語");
+        assert_eq!(escape_json_string("emoji: 🎉"), "emoji: 🎉");
+    }
+
+    #[test]
+    fn test_escape_json_empty() {
+        assert_eq!(escape_json_string(""), "");
+    }
+
+    #[test]
+    fn test_escape_json_mixed() {
+        let input = "Hello \"World\"\nPath: C:\\test";
+        let escaped = escape_json_string(input);
+        assert!(escaped.contains("\\\""));
+        assert!(escaped.contains("\\n"));
+        assert!(escaped.contains("\\\\"));
+    }
+
+    // ========================================================================
+    // Edge case tests for request path handling
+    // ========================================================================
+
+    #[test]
+    fn test_escape_json_url_paths() {
+        // Paths that might appear in RFC 7807 instance field
+        assert_eq!(escape_json_string("/api/users/123"), "/api/users/123");
+        assert_eq!(
+            escape_json_string("/api/search?q=hello world"),
+            "/api/search?q=hello world"
+        );
+        // Path with special chars that need escaping
+        assert_eq!(
+            escape_json_string("/api/data?filter=\"active\""),
+            r#"/api/data?filter=\"active\""#
+        );
+    }
+
+    #[test]
+    fn test_escape_json_malicious_input() {
+        // Attempt to break out of JSON string
+        let malicious = r#"</script><script>alert('xss')</script>"#;
+        let escaped = escape_json_string(malicious);
+        // Should not contain unescaped quotes
+        assert!(!escaped.contains(r#"""#) || escaped.contains(r#"\""#));
+    }
+
+    // ========================================================================
+    // DEFAULT_MAX_BODY_SIZE constant test
+    // ========================================================================
+
+    #[test]
+    fn test_default_max_body_size() {
+        assert_eq!(DEFAULT_MAX_BODY_SIZE, 10 * 1024 * 1024); // 10MB
+    }
+}

@@ -112,9 +112,11 @@ pub(crate) fn json_depth_exceeds_limit(data: &[u8]) -> bool {
 /// - Input exceeds 1MB (`MAX_JSON_SIZE`)
 /// - Nesting depth exceeds 20 levels (`MAX_JSON_DEPTH`, heuristic check)
 /// - Input is not valid UTF-8
+/// - **Non-whitespace content exists after the JSON value** (security: prevents injection)
 ///
-/// Note: Syntax validation is deferred until values are accessed or full parse
-/// is triggered. Invalid JSON may return `None` from `path_*` methods.
+/// Note: Beyond trailing content validation, syntax validation is deferred until
+/// values are accessed or full parse is triggered. Invalid JSON may return `None`
+/// from `path_*` methods.
 #[must_use]
 pub fn try_parse(data: &[u8]) -> Option<JsonValue> {
     if data.len() > MAX_JSON_SIZE {
@@ -125,6 +127,14 @@ pub fn try_parse(data: &[u8]) -> Option<JsonValue> {
     }
     // Validate UTF-8 upfront
     std::str::from_utf8(data).ok()?;
+
+    // Validate no trailing content (security: prevents JSON injection attacks).
+    // This is checked upfront even for lazy parsing because accepting
+    // `{"key":"value"}garbage` could lead to security issues.
+    let value_end = find_json_value_end(data)?;
+    if has_trailing_content(data, value_end) {
+        return None;
+    }
 
     // Return lazy JsonValue - parsing happens on demand
     Some(JsonValue::from_bytes(data))
@@ -142,6 +152,7 @@ pub fn try_parse(data: &[u8]) -> Option<JsonValue> {
 /// - Nesting depth exceeds 20 levels (`MAX_JSON_DEPTH`, heuristic check)
 /// - Input is not valid UTF-8
 /// - JSON syntax is invalid
+/// - **Non-whitespace content exists after the JSON value** (security: prevents injection)
 #[must_use]
 pub fn try_parse_full(data: &[u8]) -> Option<JsonValue> {
     if data.len() > MAX_JSON_SIZE {
@@ -151,8 +162,111 @@ pub fn try_parse_full(data: &[u8]) -> Option<JsonValue> {
         return None;
     }
     let s = std::str::from_utf8(data).ok()?;
+
+    // Find where the JSON value ends, then verify only whitespace follows.
+    // This prevents accepting input like `{"key":"value"}garbage` which could
+    // be a security issue (e.g., JSON injection, log forging).
+    let value_end = find_json_value_end(s.as_bytes())?;
+    if has_trailing_content(s.as_bytes(), value_end) {
+        return None;
+    }
+
     let parsed: Value = miniserde::json::from_str(s).ok()?;
     Some(JsonValue::new(parsed))
+}
+
+/// Check if there's non-whitespace content after position `pos`.
+#[inline]
+fn has_trailing_content(bytes: &[u8], pos: usize) -> bool {
+    bytes[pos..]
+        .iter()
+        .any(|&b| !matches!(b, b' ' | b'\t' | b'\n' | b'\r'))
+}
+
+/// Find the end position of a JSON value starting at the beginning of bytes.
+/// Returns the position after the complete JSON value.
+fn find_json_value_end(bytes: &[u8]) -> Option<usize> {
+    let pos = skip_ws(bytes, 0);
+    let b = *bytes.get(pos)?;
+
+    match b {
+        b'"' => find_string_end_pos(bytes, pos + 1).map(|end| end + 1),
+        b'{' => find_balanced_end_pos(bytes, pos, b'{', b'}'),
+        b'[' => find_balanced_end_pos(bytes, pos, b'[', b']'),
+        b't' => bytes
+            .get(pos..pos + 4)
+            .filter(|s| *s == b"true")
+            .map(|_| pos + 4),
+        b'f' => bytes
+            .get(pos..pos + 5)
+            .filter(|s| *s == b"false")
+            .map(|_| pos + 5),
+        b'n' => bytes
+            .get(pos..pos + 4)
+            .filter(|s| *s == b"null")
+            .map(|_| pos + 4),
+        b'-' | b'0'..=b'9' => {
+            let mut end = pos;
+            while end < bytes.len()
+                && matches!(bytes[end], b'0'..=b'9' | b'-' | b'+' | b'.' | b'e' | b'E')
+            {
+                end += 1;
+            }
+            Some(end)
+        },
+        _ => None,
+    }
+}
+
+#[inline]
+fn skip_ws(bytes: &[u8], mut pos: usize) -> usize {
+    while pos < bytes.len() && matches!(bytes[pos], b' ' | b'\t' | b'\n' | b'\r') {
+        pos += 1;
+    }
+    pos
+}
+
+fn find_string_end_pos(bytes: &[u8], mut pos: usize) -> Option<usize> {
+    while pos < bytes.len() {
+        match bytes[pos] {
+            b'"' => return Some(pos),
+            b'\\' => pos += 2,
+            _ => pos += 1,
+        }
+    }
+    None
+}
+
+fn find_balanced_end_pos(bytes: &[u8], mut pos: usize, open: u8, close: u8) -> Option<usize> {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escape = false;
+
+    while pos < bytes.len() {
+        let b = bytes[pos];
+
+        if escape {
+            escape = false;
+            pos += 1;
+            continue;
+        }
+
+        match b {
+            b'\\' if in_string => escape = true,
+            b'"' => in_string = !in_string,
+            _ if in_string => {},
+            _ if b == open => depth += 1,
+            _ if b == close => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(pos + 1);
+                }
+            },
+            _ => {},
+        }
+        pos += 1;
+    }
+    None
 }
 
 // ============================================================================

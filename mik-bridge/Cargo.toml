@@ -6,7 +6,8 @@ license = "MIT OR Apache-2.0"
 description = "Bridge component: translates WASI HTTP to mik handler interface"
 
 [lib]
-crate-type = ["cdylib"]
+# cdylib for WASM component, rlib for tests
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wit-bindgen-rt = "0.44.0"

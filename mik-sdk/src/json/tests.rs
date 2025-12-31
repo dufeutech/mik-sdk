@@ -2167,3 +2167,229 @@ mod coverage_tests {
         }
     }
 }
+
+// =========================================================================
+// TRAILING CONTENT VALIDATION TESTS (Security)
+// =========================================================================
+// These tests verify that JSON with non-whitespace content after the
+// valid JSON value is rejected. This prevents JSON injection attacks.
+
+mod trailing_content_tests {
+    use super::*;
+
+    // === try_parse trailing content tests ===
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_object() {
+        // Valid JSON followed by garbage should be rejected
+        let json = br#"{"key": "value"}garbage"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject JSON with trailing non-whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_array() {
+        let json = br#"[1, 2, 3]extra"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject array with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_string() {
+        let json = br#""hello"world"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject string with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_number() {
+        let json = br"42garbage";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject number with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_boolean() {
+        let json = br"truefoo";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject true with trailing content"
+        );
+
+        let json = br"falsebar";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject false with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_trailing_garbage_null() {
+        let json = br"nullextra";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject null with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_accepts_trailing_whitespace_object() {
+        // Trailing whitespace should be accepted
+        let json = br#"{"key": "value"}   "#;
+        assert!(
+            try_parse(json).is_some(),
+            "try_parse should accept JSON with trailing whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_accepts_trailing_whitespace_various() {
+        // Various whitespace characters: space, tab, newline, carriage return
+        let json = b"{\"key\": \"value\"}\n\t\r ";
+        assert!(
+            try_parse(json).is_some(),
+            "try_parse should accept various trailing whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_accepts_no_trailing_content() {
+        let json = br#"{"key": "value"}"#;
+        assert!(try_parse(json).is_some());
+    }
+
+    // === try_parse_full trailing content tests ===
+
+    #[test]
+    fn test_try_parse_full_rejects_trailing_garbage_object() {
+        let json = br#"{"key": "value"}garbage"#;
+        assert!(
+            try_parse_full(json).is_none(),
+            "try_parse_full should reject JSON with trailing non-whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_full_rejects_trailing_garbage_array() {
+        let json = br#"[1, 2, 3]extra"#;
+        assert!(
+            try_parse_full(json).is_none(),
+            "try_parse_full should reject array with trailing content"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_full_accepts_trailing_whitespace() {
+        let json = br#"{"key": "value"}   "#;
+        assert!(
+            try_parse_full(json).is_some(),
+            "try_parse_full should accept JSON with trailing whitespace"
+        );
+    }
+
+    // === Edge cases ===
+
+    #[test]
+    fn test_try_parse_rejects_multiple_json_values() {
+        // Two valid JSON objects concatenated - should reject
+        let json = br#"{"a":1}{"b":2}"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject multiple concatenated JSON values"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_json_followed_by_json() {
+        // Valid JSON followed by another valid JSON (JSONL style) - should reject
+        let json = br#"{"key": "value"}
+{"key2": "value2"}"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject JSONL (newline-delimited JSON)"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_accepts_leading_whitespace() {
+        // Leading whitespace should be accepted
+        let json = br#"   {"key": "value"}"#;
+        assert!(
+            try_parse(json).is_some(),
+            "try_parse should accept JSON with leading whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_accepts_leading_and_trailing_whitespace() {
+        let json = br#"   {"key": "value"}   "#;
+        assert!(
+            try_parse(json).is_some(),
+            "try_parse should accept JSON with leading and trailing whitespace"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_rejects_comment_after_json() {
+        // JSON doesn't support comments - trailing // should be rejected
+        let json = br#"{"key": "value"} // comment"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject JSON followed by comment"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_nested_object_trailing_garbage() {
+        let json = br#"{"outer": {"inner": "value"}}garbage"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject nested object with trailing garbage"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_nested_array_trailing_garbage() {
+        let json = br"[[1, 2], [3, 4]]extra";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject nested array with trailing garbage"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_string_with_quotes_trailing_garbage() {
+        // String containing escaped quotes, followed by garbage
+        let json = br#"{"msg": "hello \"world\""}extra"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should handle escaped quotes correctly"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_scientific_notation_trailing_garbage() {
+        let json = br#"{"n": 1.23e+10}garbage"#;
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject scientific notation with trailing garbage"
+        );
+    }
+
+    #[test]
+    fn test_try_parse_negative_number_trailing_garbage() {
+        let json = br"-42garbage";
+        assert!(
+            try_parse(json).is_none(),
+            "try_parse should reject negative number with trailing garbage"
+        );
+    }
+}

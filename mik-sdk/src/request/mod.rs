@@ -112,8 +112,17 @@ pub struct Request {
 
 impl std::fmt::Debug for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Intentionally omits cache fields (query_cache, form_cache, header_index)
-        // since they're internal implementation details
+        // Design decision: Omit internal cache fields from Debug output.
+        //
+        // Excluded fields and rationale:
+        // - `query_cache`: Lazy cache, populated on first query() call. Showing it
+        //   would expose implementation details and vary based on access patterns.
+        // - `form_cache`: Same as query_cache - lazy initialization detail.
+        // - `header_index`: Internal O(1) lookup optimization. Users should see
+        //   headers via `headers` field, not the index structure.
+        //
+        // This keeps Debug output focused on the actual request data that handlers
+        // care about, not internal performance optimizations.
         f.debug_struct("Request")
             .field("method", &self.method)
             .field("path", &self.path)
