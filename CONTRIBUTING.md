@@ -92,6 +92,28 @@ cargo bench -p mik-sdk
 cargo bench -p mik-sql
 ```
 
+### E2E Tests (Cross-Runtime Validation)
+
+**Important:** We have comprehensive E2E tests that validate portability across WASI runtimes (wasmtime, Spin, wasmCloud). See `tests-integration/tests/wasm_e2e.rs`.
+
+```bash
+# 1. Build and compose components first
+cd mik-bridge && cargo component build --release
+cd examples/hello-world && cargo component build --release
+wac plug mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm \
+    --plug target/wasm32-wasip1/release/hello_world.wasm \
+    -o tests-integration/fixtures/hello-world-service.wasm
+
+# 2. Run E2E tests
+cd tests-integration && cargo test -- --ignored --nocapture
+
+# 3. Run on specific runtime
+WASI_RUNTIME=wasmtime cargo test -- --ignored
+WASI_RUNTIME=spin cargo test -- --ignored
+```
+
+E2E tests cover: path params, query params, POST bodies, 404s, 413 (payload too large), 501 (unsupported methods).
+
 ### Building WASM Components
 
 ```bash
@@ -244,16 +266,16 @@ refactor(json): simplify parsing logic
 chore: update dependencies
 ```
 
-| Prefix | Description |
-|--------|-------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `style` | Code style (formatting, etc.) |
+| Prefix     | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `feat`     | New feature                                             |
+| `fix`      | Bug fix                                                 |
+| `docs`     | Documentation only                                      |
+| `style`    | Code style (formatting, etc.)                           |
 | `refactor` | Code change that neither fixes a bug nor adds a feature |
-| `perf` | Performance improvement |
-| `test` | Adding or updating tests |
-| `chore` | Maintenance tasks |
+| `perf`     | Performance improvement                                 |
+| `test`     | Adding or updating tests                                |
+| `chore`    | Maintenance tasks                                       |
 
 ## Pull Request Process
 
