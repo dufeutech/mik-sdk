@@ -8,6 +8,35 @@ Thank you for your interest in contributing to mik-sdk!
 
 Be respectful and constructive in all interactions. We welcome contributors of all experience levels.
 
+## SDK Enforcement Checklist
+
+**All contributions must adhere to these principles.** This checklist ensures `mik-sdk` remains minimal, portable, and dependable.
+
+### 1. Scope & Minimalism
+
+- [ ] `mik-sdk` exposes **only the smallest stable HTTP surface** required.
+- [ ] **No runtime-specific extensions or shortcuts**.
+- [ ] No dependency on `mik` or higher layers; strictly **runtime-neutral**.
+- [ ] Every addition is justified by **cross-runtime necessity**.
+
+### 2. Portability
+
+- [ ] Code compiles and runs **identically on all WASI targets**.
+- [ ] **No conditional compilation** (`#[cfg(...)]`) in the public API.
+- [ ] Invariants are **empirical**, verified via automated cross-runtime tests.
+
+### 3. API Discipline
+
+- [ ] Public API is **stable, small, and boring**.
+- [ ] Avoid feature creep; additions are **necessary and minimal**.
+- [ ] Document **all invariants and guarantees** clearly in the SDK.
+
+### 4. Philosophy & Position
+
+- [ ] `mik-sdk` is **canonical, minimal, runtime-neutral**.
+- [ ] It is **reusable, dependable, and boring** — designed to be quietly indispensable.
+- [ ] Decisions reinforce **portability, simplicity, and empirical correctness**.
+
 ## Getting Started
 
 1. Fork the repository
