@@ -34,7 +34,12 @@
 ///     Ok(response) => println!("Got response: {}", response.status),
 ///     Err(Error::DnsError(msg)) => eprintln!("DNS failed: {}", msg),
 ///     Err(Error::ConnectionError(msg)) => eprintln!("Connection failed: {}", msg),
-///     Err(Error::Timeout) => eprintln!("Request timed out"),
+///     Err(Error::Timeout { timeout_ms }) => {
+///         match timeout_ms {
+///             Some(ms) => eprintln!("Request timed out after {}ms", ms),
+///             None => eprintln!("Request timed out"),
+///         }
+///     }
 ///     Err(Error::TlsError(msg)) => eprintln!("TLS/SSL error: {}", msg),
 ///     Err(e) => eprintln!("Other error: {}", e),
 /// }
@@ -123,7 +128,12 @@ pub enum Error {
     /// # Ok(())
     /// # }
     /// ```
-    Timeout,
+    Timeout {
+        /// The configured timeout in milliseconds, if known.
+        /// This is `None` when the timeout is detected from WASI error strings
+        /// where the configured duration isn't available.
+        timeout_ms: Option<u64>,
+    },
 
     /// TLS/SSL handshake or certificate verification failed.
     ///
@@ -237,18 +247,301 @@ impl std::fmt::Display for Error {
         match self {
             Self::DnsError(msg) => write!(f, "dns error: {msg}"),
             Self::ConnectionError(msg) => write!(f, "connection error: {msg}"),
-            Self::Timeout => write!(f, "request timeout"),
+            Self::Timeout { timeout_ms: None } => write!(f, "request timeout"),
+            Self::Timeout {
+                timeout_ms: Some(ms),
+            } => write!(f, "request timeout after {ms}ms"),
             Self::TlsError(msg) => write!(f, "tls error: {msg}"),
             Self::InvalidUrl(msg) => write!(f, "invalid url: {msg}"),
             Self::InvalidRequest(msg) => write!(f, "invalid request: {msg}"),
             Self::ResponseError(msg) => write!(f, "response error: {msg}"),
             Self::SsrfBlocked(msg) => write!(f, "ssrf blocked: {msg}"),
-            Self::Other(msg) => write!(f, "http error: {msg}"),
+            Self::Other(msg) => write!(f, "http client error: {msg}"),
         }
     }
 }
 
 impl std::error::Error for Error {}
+
+impl Error {
+    // ========================================================================
+    // Constructors
+    // ========================================================================
+
+    /// Create a DNS error.
+    #[inline]
+    #[must_use]
+    pub fn dns(msg: impl Into<String>) -> Self {
+        Self::DnsError(msg.into())
+    }
+
+    /// Create a connection error.
+    #[inline]
+    #[must_use]
+    pub fn connection(msg: impl Into<String>) -> Self {
+        Self::ConnectionError(msg.into())
+    }
+
+    /// Create a timeout error without a known duration.
+    ///
+    /// Use this when the timeout is detected from WASI error strings
+    /// where the configured duration isn't available.
+    #[inline]
+    #[must_use]
+    pub const fn timeout() -> Self {
+        Self::Timeout { timeout_ms: None }
+    }
+
+    /// Create a timeout error with a known duration.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::timeout_with_duration(5000);
+    /// assert_eq!(err.to_string(), "request timeout after 5000ms");
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn timeout_with_duration(ms: u64) -> Self {
+        Self::Timeout {
+            timeout_ms: Some(ms),
+        }
+    }
+
+    /// Create a TLS/certificate error.
+    #[inline]
+    #[must_use]
+    pub fn tls(msg: impl Into<String>) -> Self {
+        Self::TlsError(msg.into())
+    }
+
+    /// Create an invalid URL error.
+    #[inline]
+    #[must_use]
+    pub fn invalid_url(msg: impl Into<String>) -> Self {
+        Self::InvalidUrl(msg.into())
+    }
+
+    /// Create an invalid request error.
+    #[inline]
+    #[must_use]
+    pub fn invalid_request(msg: impl Into<String>) -> Self {
+        Self::InvalidRequest(msg.into())
+    }
+
+    /// Create a response error.
+    #[inline]
+    #[must_use]
+    pub fn response(msg: impl Into<String>) -> Self {
+        Self::ResponseError(msg.into())
+    }
+
+    /// Create an SSRF blocked error.
+    #[inline]
+    #[must_use]
+    pub fn ssrf_blocked(msg: impl Into<String>) -> Self {
+        Self::SsrfBlocked(msg.into())
+    }
+
+    /// Create a generic HTTP error.
+    #[inline]
+    #[must_use]
+    pub fn other(msg: impl Into<String>) -> Self {
+        Self::Other(msg.into())
+    }
+
+    // ========================================================================
+    // Classification helpers
+    // ========================================================================
+
+    /// Returns `true` if this is a timeout error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::timeout();
+    /// assert!(err.is_timeout());
+    ///
+    /// let err = Error::DnsError("failed".into());
+    /// assert!(!err.is_timeout());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_timeout(&self) -> bool {
+        matches!(self, Self::Timeout { .. })
+    }
+
+    /// Returns `true` if this error is likely transient and worth retrying.
+    ///
+    /// Retryable errors include:
+    /// - [`Timeout`](Self::Timeout) - request timed out
+    /// - [`ConnectionError`](Self::ConnectionError) - network connectivity issues
+    /// - [`DnsError`](Self::DnsError) - DNS resolution failures (may be transient)
+    ///
+    /// Non-retryable errors (client configuration issues):
+    /// - [`InvalidUrl`](Self::InvalidUrl) - malformed URL
+    /// - [`InvalidRequest`](Self::InvalidRequest) - bad request configuration
+    /// - [`SsrfBlocked`](Self::SsrfBlocked) - blocked by SSRF protection
+    /// - [`TlsError`](Self::TlsError) - certificate issues (usually persistent)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// fn should_retry(err: &Error) -> bool {
+    ///     err.is_retryable()
+    /// }
+    ///
+    /// assert!(Error::timeout().is_retryable());
+    /// assert!(Error::ConnectionError("refused".into()).is_retryable());
+    /// assert!(!Error::InvalidUrl("bad".into()).is_retryable());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_retryable(&self) -> bool {
+        matches!(
+            self,
+            Self::Timeout { .. } | Self::ConnectionError(_) | Self::DnsError(_)
+        )
+    }
+
+    /// Returns `true` if this is a client-side configuration error.
+    ///
+    /// These errors indicate problems with the request setup, not network issues.
+    /// Retrying won't help - the request configuration needs to be fixed.
+    ///
+    /// Includes:
+    /// - [`InvalidUrl`](Self::InvalidUrl) - malformed URL
+    /// - [`InvalidRequest`](Self::InvalidRequest) - bad headers, method, etc.
+    /// - [`SsrfBlocked`](Self::SsrfBlocked) - URL blocked by SSRF protection
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::InvalidUrl("missing scheme".into());
+    /// assert!(err.is_client_error());
+    ///
+    /// let err = Error::timeout();
+    /// assert!(!err.is_client_error());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_client_error(&self) -> bool {
+        matches!(
+            self,
+            Self::InvalidUrl(_) | Self::InvalidRequest(_) | Self::SsrfBlocked(_)
+        )
+    }
+
+    /// Returns `true` if this is a TLS/SSL certificate error.
+    ///
+    /// TLS errors are usually not retryable as they indicate certificate
+    /// issues that won't resolve on their own.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::TlsError("certificate expired".into());
+    /// assert!(err.is_tls_error());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_tls_error(&self) -> bool {
+        matches!(self, Self::TlsError(_))
+    }
+
+    /// Returns `true` if this error was caused by SSRF protection.
+    ///
+    /// This indicates the request was blocked because the URL points to
+    /// a private/internal address and `deny_private_ips()` was enabled.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::SsrfBlocked("localhost blocked".into());
+    /// assert!(err.is_ssrf_blocked());
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn is_ssrf_blocked(&self) -> bool {
+        matches!(self, Self::SsrfBlocked(_))
+    }
+
+    // ========================================================================
+    // Data extraction
+    // ========================================================================
+
+    /// Returns the configured timeout duration if this is a `Timeout` error.
+    ///
+    /// Returns `None` if:
+    /// - This is not a `Timeout` error
+    /// - This is a `Timeout` but the duration wasn't known (e.g., from WASI error parsing)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::timeout_with_duration(5000);
+    /// assert_eq!(err.timeout_ms(), Some(5000));
+    ///
+    /// let err = Error::timeout();
+    /// assert_eq!(err.timeout_ms(), None);
+    ///
+    /// let err = Error::DnsError("failed".into());
+    /// assert_eq!(err.timeout_ms(), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub const fn timeout_ms(&self) -> Option<u64> {
+        match self {
+            Self::Timeout { timeout_ms } => *timeout_ms,
+            _ => None,
+        }
+    }
+
+    /// Returns the error message for errors that carry a message string.
+    ///
+    /// Returns `Some(&str)` for all variants except `Timeout` (which has no message).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use mik_sdk::http_client::Error;
+    ///
+    /// let err = Error::DnsError("NXDOMAIN".into());
+    /// assert_eq!(err.message(), Some("NXDOMAIN"));
+    ///
+    /// let err = Error::timeout();
+    /// assert_eq!(err.message(), None);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn message(&self) -> Option<&str> {
+        match self {
+            Self::DnsError(msg)
+            | Self::ConnectionError(msg)
+            | Self::TlsError(msg)
+            | Self::InvalidUrl(msg)
+            | Self::InvalidRequest(msg)
+            | Self::ResponseError(msg)
+            | Self::SsrfBlocked(msg)
+            | Self::Other(msg) => Some(msg),
+            Self::Timeout { .. } => None,
+        }
+    }
+}
 
 // ============================================================================
 // WASI Error Mapping
@@ -360,7 +653,7 @@ fn matches_any(error_bytes: &[u8], patterns: &[&[u8]]) -> bool {
 ///
 /// // Timeout errors
 /// let err = map_wasi_error("request timed out after 5000ms");
-/// assert!(matches!(err, Error::Timeout));
+/// assert!(matches!(err, Error::Timeout { .. }));
 ///
 /// // TLS errors
 /// let err = map_wasi_error("TLS handshake failed: certificate has expired");
@@ -401,7 +694,7 @@ pub fn map_wasi_error(wasi_error: &str) -> Error {
 
     // Timeout errors - check before connection errors
     if matches_any(error_bytes, TIMEOUT_PATTERNS) {
-        return Error::Timeout;
+        return Error::Timeout { timeout_ms: None };
     }
 
     // TLS/SSL errors - check before connection errors

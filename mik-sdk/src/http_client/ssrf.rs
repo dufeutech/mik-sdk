@@ -1,4 +1,45 @@
-//! SSRF protection utilities for HTTP client.
+//! SSRF (Server-Side Request Forgery) protection utilities.
+//!
+//! This module provides protection against SSRF attacks by detecting and blocking
+//! requests to private/internal network addresses.
+//!
+//! # What is SSRF?
+//!
+//! SSRF occurs when an attacker tricks a server into making requests to internal
+//! resources. For example, a user-provided URL like `http://localhost:8080/admin`
+//! or `http://169.254.169.254/metadata` (AWS metadata endpoint) could expose
+//! internal services.
+//!
+//! # Usage
+//!
+//! Enable SSRF protection on user-provided URLs:
+//!
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Error};
+//! # fn send(_: &http_client::ClientRequest) -> Result<http_client::Response, Error> {
+//! #     Ok(http_client::Response::new(200, vec![], vec![]))
+//! # }
+//! # fn example(user_url: &str) -> Result<(), Error> {
+//! let response = http_client::get(user_url)
+//!     .deny_private_ips()  // Enable SSRF protection
+//!     .send_with(send)?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Blocked Addresses
+//!
+//! The following are considered private/internal:
+//! - `localhost`, `*.localhost`
+//! - `127.x.x.x` (loopback)
+//! - `10.x.x.x` (private class A)
+//! - `172.16-31.x.x` (private class B)
+//! - `192.168.x.x` (private class C)
+//! - `169.254.x.x` (link-local, cloud metadata)
+//! - `0.0.0.0` (unspecified)
+//! - `::1`, `::` (IPv6 loopback/unspecified)
+//! - `fe80::` (IPv6 link-local)
+//! - `fc00::`/`fd00::` (IPv6 unique local)
 
 use super::error::{Error, Result};
 
@@ -110,7 +151,7 @@ pub(super) fn validate_authority(authority: &str) -> Result<()> {
         // IPv6 address
         let close_bracket = authority
             .find(']')
-            .ok_or_else(|| Error::InvalidUrl("IPv6 address missing closing bracket".to_string()))?;
+            .ok_or_else(|| Error::InvalidUrl("IPv6 address missing closing `]`".to_string()))?;
 
         let ipv6_part = &authority[1..close_bracket];
         validate_ipv6(ipv6_part)?;
@@ -120,7 +161,7 @@ pub(super) fn validate_authority(authority: &str) -> Result<()> {
         if !after_bracket.is_empty() {
             if !after_bracket.starts_with(':') {
                 return Err(Error::InvalidUrl(
-                    "Invalid characters after IPv6 address".to_string(),
+                    "invalid characters after IPv6 address".to_string(),
                 ));
             }
             validate_port(&after_bracket[1..])?;
@@ -143,7 +184,7 @@ pub(super) fn validate_authority(authority: &str) -> Result<()> {
 /// Validate an IPv6 address (without brackets).
 fn validate_ipv6(addr: &str) -> Result<()> {
     if addr.is_empty() {
-        return Err(Error::InvalidUrl("Empty IPv6 address".to_string()));
+        return Err(Error::InvalidUrl("empty IPv6 address".to_string()));
     }
 
     // Count colons and validate segments
@@ -158,7 +199,7 @@ fn validate_ipv6(addr: &str) -> Result<()> {
 
         // Each segment should be 1-4 hex digits
         if part.len() > 4 || !part.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err(Error::InvalidUrl(format!("Invalid IPv6 segment: {part}")));
+            return Err(Error::InvalidUrl(format!("invalid IPv6 segment `{part}`")));
         }
         segments += 1;
     }
@@ -168,13 +209,13 @@ fn validate_ipv6(addr: &str) -> Result<()> {
     if double_colon_count > 3 {
         // More than one "::" sequence (each :: creates 2 empty parts at boundaries)
         return Err(Error::InvalidUrl(
-            "Invalid IPv6 address: multiple :: sequences".to_string(),
+            "invalid IPv6 address: multiple `::` sequences".to_string(),
         ));
     }
 
     if segments > 8 {
         return Err(Error::InvalidUrl(
-            "Invalid IPv6 address: too many segments".to_string(),
+            "invalid IPv6 address: too many segments".to_string(),
         ));
     }
 
@@ -184,17 +225,17 @@ fn validate_ipv6(addr: &str) -> Result<()> {
 /// Validate a port number.
 fn validate_port(port: &str) -> Result<()> {
     if port.is_empty() {
-        return Err(Error::InvalidUrl("Empty port number".to_string()));
+        return Err(Error::InvalidUrl("empty port number".to_string()));
     }
 
     // Port must be numeric and within valid range (1-65535)
     let port_num: u32 = port
         .parse()
-        .map_err(|_| Error::InvalidUrl(format!("Invalid port number: {port}")))?;
+        .map_err(|_| Error::InvalidUrl(format!("invalid port number `{port}`")))?;
 
     if port_num == 0 || port_num > 65535 {
         return Err(Error::InvalidUrl(format!(
-            "Port number out of range (1-65535): {port_num}"
+            "port `{port_num}` out of range (1-65535)"
         )));
     }
 
@@ -211,7 +252,7 @@ pub(super) fn validate_percent_encoding(s: &str) -> Result<()> {
             // Must have at least 2 more characters
             if i + 2 >= bytes.len() {
                 return Err(Error::InvalidUrl(
-                    "Incomplete percent-encoding at end of URL".to_string(),
+                    "incomplete percent-encoding at end of URL".to_string(),
                 ));
             }
 
@@ -221,7 +262,7 @@ pub(super) fn validate_percent_encoding(s: &str) -> Result<()> {
 
             if !hex1.is_ascii_hexdigit() || !hex2.is_ascii_hexdigit() {
                 return Err(Error::InvalidUrl(format!(
-                    "Invalid percent-encoding: %{}{}",
+                    "invalid percent-encoding `%{}{}`",
                     char::from(hex1),
                     char::from(hex2)
                 )));

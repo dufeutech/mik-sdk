@@ -64,7 +64,7 @@ impl ClientRequest {
             let host = authority.split(':').next().unwrap_or(&authority);
             if crate::http_client::is_private_address(host) {
                 return Err(Error::SsrfBlocked(format!(
-                    "Request to private/internal address blocked: {}",
+                    "request to private/internal address blocked: `{}`",
                     host
                 )));
             }

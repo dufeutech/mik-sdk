@@ -215,12 +215,14 @@ const fn is_retryable_status(status: u16) -> bool {
     matches!(status, 429 | 500 | 502 | 503 | 504)
 }
 
-/// Check if error is retryable (network issues, timeouts)
+/// Check if error is retryable (network issues, timeouts).
+///
+/// Uses the built-in `is_retryable()` helper which covers:
+/// - Timeout errors
+/// - Connection errors
+/// - DNS errors
 const fn is_retryable_error(e: &HttpError) -> bool {
-    matches!(
-        e,
-        HttpError::Timeout | HttpError::ConnectionError(_) | HttpError::DnsError(_)
-    )
+    e.is_retryable()
 }
 
 // ============================================================================

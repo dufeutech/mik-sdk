@@ -16,7 +16,11 @@ pub enum DecodeError {
 impl std::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TooLong => write!(f, "url decoded output exceeds maximum length"),
+            Self::TooLong => write!(
+                f,
+                "url decoded output exceeds maximum length ({}KB limit)",
+                MAX_URL_DECODED_LEN / 1024
+            ),
         }
     }
 }

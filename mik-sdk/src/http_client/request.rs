@@ -291,7 +291,7 @@ impl ClientRequest {
             (Scheme::Http, &self.url[7..])
         } else {
             return Err(Error::InvalidUrl(format!(
-                "URL must start with http:// or https://: {}",
+                "URL must start with `http://` or `https://`: `{}`",
                 self.url
             )));
         };
@@ -302,7 +302,7 @@ impl ClientRequest {
             .map_or((rest, "/"), |idx| (&rest[..idx], &rest[idx..]));
 
         if authority.is_empty() {
-            return Err(Error::InvalidUrl("Missing host in URL".to_string()));
+            return Err(Error::InvalidUrl("missing host in URL".to_string()));
         }
 
         // Validate authority (host and optional port)
@@ -311,7 +311,7 @@ impl ClientRequest {
         // Check for private IPs if SSRF protection is enabled
         if self.deny_private_ips && is_private_address(authority) {
             return Err(Error::InvalidUrl(format!(
-                "Request to private/internal address denied: {authority}"
+                "request to private/internal address denied: `{authority}`"
             )));
         }
 

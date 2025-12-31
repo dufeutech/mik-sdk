@@ -176,12 +176,13 @@ impl std::error::Error for ParseError {}
 /// Convert ValidationError to ParseError.
 ///
 /// This allows using `?` to propagate validation errors in contexts
-/// that expect parse errors.
+/// that expect parse errors. The constraint type is preserved in the
+/// message for better error diagnostics.
 impl From<ValidationError> for ParseError {
     fn from(err: ValidationError) -> Self {
         Self::Custom {
             field: err.field().to_string(),
-            message: err.to_string(),
+            message: format!("[{}] {}", err.constraint(), err),
         }
     }
 }

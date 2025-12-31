@@ -185,15 +185,41 @@ pub enum CursorError {
 impl std::fmt::Display for CursorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidBase64 => write!(f, "invalid base64 encoding"),
-            Self::InvalidFormat => write!(f, "invalid cursor format"),
-            Self::TooLarge => write!(f, "cursor exceeds maximum size"),
-            Self::TooManyFields => write!(f, "cursor has too many fields"),
+            Self::InvalidBase64 => write!(f, "invalid base64 encoding in cursor"),
+            Self::InvalidFormat => write!(f, "invalid cursor format (expected JSON object)"),
+            Self::TooLarge => write!(
+                f,
+                "cursor exceeds maximum size ({}KB limit)",
+                MAX_CURSOR_SIZE / 1024
+            ),
+            Self::TooManyFields => {
+                write!(f, "cursor has too many fields (max {MAX_CURSOR_FIELDS})")
+            },
         }
     }
 }
 
 impl std::error::Error for CursorError {}
+
+impl CursorError {
+    /// Returns `true` if this is an encoding/format error.
+    ///
+    /// Includes `InvalidBase64` and `InvalidFormat`.
+    #[inline]
+    #[must_use]
+    pub const fn is_format_error(&self) -> bool {
+        matches!(self, Self::InvalidBase64 | Self::InvalidFormat)
+    }
+
+    /// Returns `true` if this is a size/limit error.
+    ///
+    /// Includes `TooLarge` and `TooManyFields`.
+    #[inline]
+    #[must_use]
+    pub const fn is_limit_error(&self) -> bool {
+        matches!(self, Self::TooLarge | Self::TooManyFields)
+    }
+}
 
 /// Trait for types that can be converted into a cursor.
 ///

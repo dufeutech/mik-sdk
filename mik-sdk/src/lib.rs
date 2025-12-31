@@ -360,7 +360,7 @@ pub mod prelude {
     pub use crate::json::ToJson;
     pub use crate::log;
     pub use crate::random;
-    pub use crate::request::{Method, Request};
+    pub use crate::request::{DecodeError, Method, Request};
     pub use crate::status;
     pub use crate::time;
     // Typed input types

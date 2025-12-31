@@ -107,6 +107,30 @@
 //! # }
 //! ```
 //!
+//! # Error Handling
+//!
+//! The [`Error`] type provides helper methods for classifying and handling errors:
+//!
+//! ```
+//! use mik_sdk::http_client::Error;
+//!
+//! # let err = Error::timeout();
+//! // Classification
+//! if err.is_retryable() {
+//!     // Timeout, ConnectionError, or DnsError - worth retrying
+//! }
+//! if err.is_client_error() {
+//!     // InvalidUrl, InvalidRequest, or SsrfBlocked - fix config
+//! }
+//!
+//! // Data extraction
+//! if let Some(ms) = err.timeout_ms() {
+//!     println!("Timed out after {}ms", ms);
+//! }
+//! ```
+//!
+//! See [`Error`] for the full list of helper methods.
+//!
 //! # Runtime Support
 //!
 //! The HTTP client works on any WASI HTTP runtime that supports `wasi:http/outgoing-handler`:
@@ -267,7 +291,17 @@ mod tests {
             Error::DnsError("failed".to_string()).to_string(),
             "dns error: failed"
         );
-        assert_eq!(Error::Timeout.to_string(), "request timeout");
+        assert_eq!(
+            Error::Timeout { timeout_ms: None }.to_string(),
+            "request timeout"
+        );
+        assert_eq!(
+            Error::Timeout {
+                timeout_ms: Some(5000)
+            }
+            .to_string(),
+            "request timeout after 5000ms"
+        );
         assert_eq!(
             Error::InvalidUrl("bad url".to_string()).to_string(),
             "invalid url: bad url"
@@ -428,7 +462,7 @@ mod tests {
         let errors = vec![
             Error::DnsError("lookup failed".to_string()),
             Error::ConnectionError("refused".to_string()),
-            Error::Timeout,
+            Error::Timeout { timeout_ms: None },
             Error::TlsError("cert invalid".to_string()),
             Error::InvalidUrl("bad".to_string()),
             Error::InvalidRequest("bad method".to_string()),
@@ -559,20 +593,27 @@ mod tests {
 
     #[test]
     fn test_map_wasi_error_timeout() {
-        // Various timeout patterns
-        assert!(matches!(map_wasi_error("request timeout"), Error::Timeout));
+        // Various timeout patterns - all should have timeout_ms: None since
+        // we can't extract the duration from WASI error strings
+        assert!(matches!(
+            map_wasi_error("request timeout"),
+            Error::Timeout { timeout_ms: None }
+        ));
         assert!(matches!(
             map_wasi_error("operation timed out"),
-            Error::Timeout
+            Error::Timeout { timeout_ms: None }
         ));
         assert!(matches!(
             map_wasi_error("deadline exceeded after 5000ms"),
-            Error::Timeout
+            Error::Timeout { timeout_ms: None }
         ));
-        assert!(matches!(map_wasi_error("ETIMEDOUT"), Error::Timeout));
+        assert!(matches!(
+            map_wasi_error("ETIMEDOUT"),
+            Error::Timeout { timeout_ms: None }
+        ));
         assert!(matches!(
             map_wasi_error("Request timed out after 30 seconds"),
-            Error::Timeout
+            Error::Timeout { timeout_ms: None }
         ));
     }
 
@@ -752,7 +793,7 @@ mod tests {
             map_wasi_error("DNS LOOKUP FAILED"),
             Error::DnsError(_)
         ));
-        assert!(matches!(map_wasi_error("TIMEOUT"), Error::Timeout));
+        assert!(matches!(map_wasi_error("TIMEOUT"), Error::Timeout { .. }));
         assert!(matches!(
             map_wasi_error("Certificate Error"),
             Error::TlsError(_)
@@ -788,7 +829,7 @@ mod tests {
         // "connection timeout" should map to Timeout, not ConnectionError
         assert!(matches!(
             map_wasi_error("connection timeout"),
-            Error::Timeout
+            Error::Timeout { .. }
         ));
 
         // "TLS handshake" should map to TlsError even though it contains "handshake"

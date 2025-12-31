@@ -225,21 +225,37 @@ impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FieldNotAllowed { field, allowed } => {
-                write!(
-                    f,
-                    "field `{}` is not allowed, allowed fields: {}",
-                    field,
-                    allowed.join(", ")
-                )
+                if allowed.is_empty() {
+                    write!(f, "field `{field}` is not allowed (no fields permitted)")
+                } else {
+                    write!(
+                        f,
+                        "field `{field}` is not allowed; permitted: {}",
+                        allowed.join(", ")
+                    )
+                }
             },
             Self::OperatorDenied { operator, field } => {
-                write!(f, "operator `{operator:?}` is denied for field `{field}`")
+                let reason = match operator {
+                    Operator::Regex => " (ReDoS prevention)",
+                    _ => "",
+                };
+                write!(
+                    f,
+                    "operator `{operator:?}` denied for field `{field}`{reason}"
+                )
             },
             Self::NestingTooDeep { max, actual } => {
-                write!(f, "filter nesting depth {actual} exceeds maximum {max}")
+                write!(
+                    f,
+                    "filter nesting depth {actual} exceeds maximum {max} (DoS prevention)"
+                )
             },
             Self::TooManyNodes { max } => {
-                write!(f, "filter contains too many value nodes (max {max})")
+                write!(
+                    f,
+                    "filter contains too many value nodes (max {max}, DoS prevention)"
+                )
             },
         }
     }
