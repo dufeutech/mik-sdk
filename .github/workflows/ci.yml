@@ -96,7 +96,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.89
         with:
           targets: wasm32-wasip2
+      - name: Cache cargo-component
+        id: cache-cargo-component
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-component
+          key: cargo-component-0.18
       - name: Install cargo-component
+        if: steps.cache-cargo-component.outputs.cache-hit != 'true'
         run: cargo install cargo-component --locked
       - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
@@ -116,14 +123,21 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.89
         with:
           targets: wasm32-wasip2
+      - name: Cache WASM tools
+        id: cache-wasm-tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-component
+            ~/.cargo/bin/wac
+          key: wasm-tools-cargo-component-0.18-wac-0.6
       - name: Install cargo-component
+        if: steps.cache-wasm-tools.outputs.cache-hit != 'true'
         run: cargo install cargo-component --locked
       - name: Install wac
+        if: steps.cache-wasm-tools.outputs.cache-hit != 'true'
         run: cargo install wac-cli --locked
-      - name: Install wasmtime
-        run: |
-          curl https://wasmtime.dev/install.sh -sSf | bash
-          echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
       - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
         run: cd mik-bridge && cargo component build --release
