@@ -255,10 +255,10 @@ mod tests {
 
         assert_eq!(sql, "id != ALL($1)");
         assert_eq!(params.len(), 1);
-        match &params[0] {
-            Value::Array(arr) => assert_eq!(arr.len(), 3),
-            _ => panic!("Expected array parameter"),
-        }
+        let Value::Array(arr) = &params[0] else {
+            panic!("expected Value::Array, got {:?}", params[0])
+        };
+        assert_eq!(arr.len(), 3);
     }
 
     #[test]
@@ -399,10 +399,10 @@ mod tests {
         let (sql, params) = pg.in_clause("id", &values, 1);
 
         assert_eq!(sql, "id = ANY($1)");
-        match &params[0] {
-            Value::Array(arr) => assert!(arr.is_empty()),
-            _ => panic!("Expected empty array"),
-        }
+        let Value::Array(arr) = &params[0] else {
+            panic!("expected Value::Array, got {:?}", params[0])
+        };
+        assert!(arr.is_empty());
     }
 
     // --- Tests for Default trait ---
@@ -541,9 +541,9 @@ mod tests {
 
         assert_eq!(sql, "id != ALL($1)");
         assert_eq!(params.len(), 1);
-        match &params[0] {
-            Value::Array(arr) => assert!(arr.is_empty()),
-            _ => panic!("Expected empty array"),
-        }
+        let Value::Array(arr) = &params[0] else {
+            panic!("expected Value::Array, got {:?}", params[0])
+        };
+        assert!(arr.is_empty());
     }
 }

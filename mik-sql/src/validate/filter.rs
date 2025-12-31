@@ -360,13 +360,11 @@ mod tests {
         let result = validator.validate(&filter);
         assert!(result.is_err());
 
-        match result.unwrap_err() {
-            ValidationError::FieldNotAllowed { field, allowed } => {
-                assert_eq!(field, "password");
-                assert_eq!(allowed.len(), 2);
-            },
-            _ => panic!("Expected FieldNotAllowed error"),
-        }
+        let ValidationError::FieldNotAllowed { field, allowed } = result.unwrap_err() else {
+            panic!("expected FieldNotAllowed, got different error variant")
+        };
+        assert_eq!(field, "password");
+        assert_eq!(allowed.len(), 2);
     }
 
     #[test]
@@ -397,13 +395,11 @@ mod tests {
         let result = validator.validate(&filter);
         assert!(result.is_err());
 
-        match result.unwrap_err() {
-            ValidationError::OperatorDenied { operator, field } => {
-                assert_eq!(operator, Operator::Regex);
-                assert_eq!(field, "name");
-            },
-            _ => panic!("Expected OperatorDenied error"),
-        }
+        let ValidationError::OperatorDenied { operator, field } = result.unwrap_err() else {
+            panic!("expected OperatorDenied, got different error variant")
+        };
+        assert_eq!(operator, Operator::Regex);
+        assert_eq!(field, "name");
     }
 
     #[test]
@@ -444,13 +440,11 @@ mod tests {
         let result = validator.validate(&filter_deep);
         assert!(result.is_err());
 
-        match result.unwrap_err() {
-            ValidationError::NestingTooDeep { max, actual } => {
-                assert_eq!(max, 2);
-                assert!(actual > max);
-            },
-            _ => panic!("Expected NestingTooDeep error"),
-        }
+        let ValidationError::NestingTooDeep { max, actual } = result.unwrap_err() else {
+            panic!("expected NestingTooDeep, got different error variant")
+        };
+        assert_eq!(max, 2);
+        assert!(actual > max);
     }
 
     #[test]
@@ -678,12 +672,10 @@ mod tests {
         let result = validator.validate(&filter);
         assert!(result.is_err());
 
-        match result.unwrap_err() {
-            ValidationError::OperatorDenied { operator, .. } => {
-                assert_eq!(operator, Operator::Regex);
-            },
-            _ => panic!("Expected OperatorDenied error"),
-        }
+        let ValidationError::OperatorDenied { operator, .. } = result.unwrap_err() else {
+            panic!("expected OperatorDenied, got different error variant")
+        };
+        assert_eq!(operator, Operator::Regex);
     }
 
     #[test]

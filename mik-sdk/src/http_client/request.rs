@@ -46,6 +46,7 @@ impl std::fmt::Display for Scheme {
 /// ```
 #[derive(Debug, Clone)]
 #[must_use = "request must be sent with .send_with()"]
+#[non_exhaustive]
 pub struct ClientRequest {
     method: Method,
     url: String,
@@ -190,18 +191,21 @@ impl ClientRequest {
     }
 
     /// Get the URL.
+    #[inline]
     #[must_use]
     pub fn url(&self) -> &str {
         &self.url
     }
 
     /// Get the headers.
+    #[inline]
     #[must_use]
     pub fn headers(&self) -> &[(String, String)] {
         &self.headers
     }
 
     /// Get the request body bytes.
+    #[inline]
     #[must_use]
     pub fn body_bytes(&self) -> Option<&[u8]> {
         self.body.as_deref()

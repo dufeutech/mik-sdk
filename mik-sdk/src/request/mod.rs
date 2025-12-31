@@ -85,6 +85,7 @@ impl std::fmt::Display for Method {
 /// This avoids cloning header values while providing:
 /// - O(1) header lookups via `header()` and `header_all()`
 /// - Original header iteration via `headers()`
+#[non_exhaustive]
 pub struct Request {
     method: Method,
     path: String,
@@ -328,6 +329,7 @@ impl Request {
     /// Get all headers as name-value pairs.
     ///
     /// Returns headers in their original form (before normalization).
+    #[inline]
     pub fn headers(&self) -> &[(String, String)] {
         &self.headers
     }
@@ -340,6 +342,7 @@ impl Request {
     ///
     /// - `Some(&[u8])` - The raw body bytes
     /// - `None` - No body in request
+    #[inline]
     #[must_use]
     pub fn body(&self) -> Option<&[u8]> {
         self.body.as_deref()
@@ -351,12 +354,15 @@ impl Request {
     ///
     /// - `Some(&str)` - Body successfully decoded as UTF-8
     /// - `None` - No body, or body is not valid UTF-8
+    #[inline]
     #[must_use]
     pub fn text(&self) -> Option<&str> {
         self.body.as_ref().and_then(|b| std::str::from_utf8(b).ok())
     }
 
     /// Check if request has a body.
+    #[inline]
+    #[must_use]
     pub fn has_body(&self) -> bool {
         self.body.as_ref().is_some_and(|b| !b.is_empty())
     }
@@ -367,6 +373,7 @@ impl Request {
     ///
     /// - `Some(&str)` - The Content-Type header value
     /// - `None` - No Content-Type header present
+    #[inline]
     #[must_use]
     pub fn content_type(&self) -> Option<&str> {
         use crate::constants::HEADER_CONTENT_TYPE;
@@ -374,6 +381,8 @@ impl Request {
     }
 
     /// Check if Content-Type is JSON (case-insensitive).
+    #[inline]
+    #[must_use]
     pub fn is_json(&self) -> bool {
         use crate::constants::MIME_JSON;
         self.content_type()
@@ -381,6 +390,8 @@ impl Request {
     }
 
     /// Check if Content-Type is form-urlencoded (case-insensitive).
+    #[inline]
+    #[must_use]
     pub fn is_form(&self) -> bool {
         use crate::constants::MIME_FORM_URLENCODED;
         self.content_type()
@@ -388,6 +399,8 @@ impl Request {
     }
 
     /// Check if Content-Type is HTML (case-insensitive).
+    #[inline]
+    #[must_use]
     pub fn is_html(&self) -> bool {
         use crate::constants::MIME_HTML;
         self.content_type()

@@ -301,10 +301,10 @@ mod tests {
         let decoded = Cursor::decode(&encoded).unwrap();
 
         assert_eq!(decoded.fields.len(), 1);
-        match &decoded.fields[0].1 {
-            Value::Float(f) => assert!((f - 1.234).abs() < 0.001),
-            _ => panic!("Expected float"),
-        }
+        let Value::Float(f) = &decoded.fields[0].1 else {
+            panic!("expected Value::Float, got {:?}", decoded.fields[0].1)
+        };
+        assert!((f - 1.234).abs() < 0.001);
     }
 
     #[test]

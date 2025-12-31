@@ -188,6 +188,7 @@ impl EnvCache {
     }
 
     /// Get all environment variables.
+    #[inline]
     #[must_use]
     pub fn all(&self) -> &[(String, String)] {
         &self.vec

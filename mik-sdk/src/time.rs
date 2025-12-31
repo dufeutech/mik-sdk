@@ -371,7 +371,7 @@ mod tests {
         let secs = now();
         let iso = now_iso();
         // Extract year from ISO string
-        let year: u64 = iso[0..4].parse().unwrap();
+        let year: u64 = iso[0..4].parse().expect("valid ISO year");
         // Year should be reasonable (2020-2100)
         assert!((2020..=2100).contains(&year));
         // Check that now() and now_iso() are close in time
@@ -388,12 +388,12 @@ mod tests {
         let after = now();
 
         // Parse ISO string: "2025-01-16T10:50:00Z" or "2025-01-16T10:50:00.500Z"
-        let year: u64 = iso[0..4].parse().unwrap();
-        let month: u64 = iso[5..7].parse().unwrap();
-        let day: u64 = iso[8..10].parse().unwrap();
-        let hour: u64 = iso[11..13].parse().unwrap();
-        let minute: u64 = iso[14..16].parse().unwrap();
-        let second: u64 = iso[17..19].parse().unwrap();
+        let year: u64 = iso[0..4].parse().expect("valid ISO year");
+        let month: u64 = iso[5..7].parse().expect("valid ISO month");
+        let day: u64 = iso[8..10].parse().expect("valid ISO day");
+        let hour: u64 = iso[11..13].parse().expect("valid ISO hour");
+        let minute: u64 = iso[14..16].parse().expect("valid ISO minute");
+        let second: u64 = iso[17..19].parse().expect("valid ISO second");
 
         // Reconstruct timestamp using inverse of Hinnant's algorithm
         // This verifies our to_iso output is accurate

@@ -35,6 +35,7 @@ impl Response {
     }
 
     /// Get response body as bytes.
+    #[inline]
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         &self.body
@@ -46,6 +47,7 @@ impl Response {
     ///
     /// - `Some(&str)` - Body successfully decoded as UTF-8
     /// - `None` - Body is not valid UTF-8
+    #[inline]
     #[must_use]
     pub fn text(&self) -> Option<&str> {
         std::str::from_utf8(&self.body).ok()
@@ -78,18 +80,21 @@ impl Response {
     /// Get response body as owned bytes (consuming).
     ///
     /// Use this when you need to own the body bytes. For borrowing, use [`bytes()`](Self::bytes).
+    #[inline]
     #[must_use]
     pub fn body(self) -> Vec<u8> {
         self.body
     }
 
     /// Get response headers as slice of (name, value) tuples.
+    #[inline]
     #[must_use]
     pub fn headers(&self) -> &[(String, String)] {
         &self.headers
     }
 
     /// Get a header value by name (case-insensitive).
+    #[inline]
     #[must_use]
     pub fn header(&self, name: &str) -> Option<&str> {
         // Fast path: if name is already lowercase, avoid allocation
