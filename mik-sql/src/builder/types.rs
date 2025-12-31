@@ -278,7 +278,7 @@ pub enum Value {
     /// UTF-8 string value.
     String(String),
     /// Array of values (for IN, BETWEEN operators).
-    Array(Vec<Value>),
+    Array(Vec<Self>),
 }
 
 /// Sort direction.
