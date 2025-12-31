@@ -3,8 +3,8 @@
 //! This module provides convenient functions for generating random values
 //! using the runtime's cryptographic random number generator.
 //!
-//! - **WASI (wasi-http feature):** Uses `wasi:random/random` directly
-//! - **Native (getrandom feature):** Uses OS entropy via getrandom crate
+//! - **WASM:** Uses `wasi:random/random` directly
+//! - **Native (tests only):** Uses OS entropy via getrandom crate
 //!
 //! # Security
 //!
@@ -13,8 +13,9 @@
 //!
 //! # Examples
 //!
-//! ```
-//! # use mik_sdk::random;
+//! ```ignore
+//! use mik_sdk::random;
+//!
 //! // Generate random bytes
 //! let secret = random::bytes(32);
 //! assert_eq!(secret.len(), 32);
@@ -34,8 +35,8 @@
 /// Generate cryptographically secure random bytes.
 ///
 /// Uses the runtime's secure random number generator:
-/// - WASI: `wasi:random/random` (native, no crate overhead)
-/// - Native: OS entropy via getrandom crate
+/// - WASM: `wasi:random/random` directly
+/// - Native (tests): OS entropy via getrandom crate
 ///
 /// # Panics
 ///
@@ -43,7 +44,7 @@
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let key = mik_sdk::random::bytes(32);
 /// assert_eq!(key.len(), 32);
 /// ```
@@ -54,9 +55,9 @@ pub fn bytes(len: usize) -> Vec<u8> {
     crate::wasi_http::wasi::random::random::get_random_bytes(len as u64)
 }
 
-/// Generate cryptographically secure random bytes (native implementation).
+/// Generate cryptographically secure random bytes (native test implementation).
 #[must_use]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), test))]
 pub fn bytes(len: usize) -> Vec<u8> {
     let mut buf = vec![0u8; len];
     getrandom::fill(&mut buf).expect("system RNG failure");
@@ -71,7 +72,7 @@ pub fn bytes(len: usize) -> Vec<u8> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let id = mik_sdk::random::u64();
 /// ```
 // WASM target: use native wasi:random/random
@@ -81,9 +82,9 @@ pub fn u64() -> u64 {
     crate::wasi_http::wasi::random::random::get_random_u64()
 }
 
-/// Generate a cryptographically secure random u64 (native implementation).
+/// Generate a cryptographically secure random u64 (native test implementation).
 #[must_use]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), test))]
 pub fn u64() -> u64 {
     let mut buf = [0u8; 8];
     getrandom::fill(&mut buf).expect("system RNG failure");
@@ -101,12 +102,13 @@ pub fn u64() -> u64 {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let id = mik_sdk::random::uuid();
 /// assert_eq!(id.len(), 36);
 /// assert_eq!(id.chars().nth(14), Some('4')); // Version 4
 /// ```
 #[must_use]
+#[cfg(any(target_arch = "wasm32", test))]
 pub fn uuid() -> String {
     let mut buf = bytes(16);
 
@@ -146,11 +148,12 @@ pub fn uuid() -> String {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let token = mik_sdk::random::hex(16);
 /// assert_eq!(token.len(), 32); // 16 bytes = 32 hex chars
 /// ```
 #[must_use]
+#[cfg(any(target_arch = "wasm32", test))]
 pub fn hex(byte_len: usize) -> String {
     use crate::constants::HEX_CHARS;
     let random_bytes = bytes(byte_len);
