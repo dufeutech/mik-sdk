@@ -82,7 +82,8 @@ fn test_router_loads() -> Result<()> {
     let component = Component::from_file(&engine, router_path)?;
 
     // Better assertions
-    let exports: Vec<_> = component.component_type().exports(&engine).collect();
+    let component_type = component.component_type();
+    let exports: Vec<_> = component_type.exports(&engine).collect();
     assert!(!exports.is_empty(), "Component should have exports");
 
     Ok(())
@@ -99,7 +100,8 @@ fn test_bridge_loads() -> Result<()> {
     let component = Component::from_file(&engine, bridge_path)?;
 
     // Better assertions
-    let exports: Vec<_> = component.component_type().exports(&engine).collect();
+    let component_type = component.component_type();
+    let exports: Vec<_> = component_type.exports(&engine).collect();
     assert!(!exports.is_empty(), "Component should have exports");
 
     Ok(())

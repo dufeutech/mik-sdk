@@ -184,6 +184,22 @@ jobs:
           done
 
   # ============================================================================
+  # Benchmarks
+  # ============================================================================
+
+  benchmark:
+    name: Benchmark Compilation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile benchmarks (mik-sdk)
+        run: cargo bench -p mik-sdk --no-run
+      - name: Compile benchmarks (mik-sql)
+        run: cargo bench -p mik-sql --no-run
+
+  # ============================================================================
   # Coverage
   # ============================================================================
 

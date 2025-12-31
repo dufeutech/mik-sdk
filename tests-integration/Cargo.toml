@@ -8,9 +8,18 @@ publish = false
 wasmtime = { version = "29", features = ["component-model"] }
 anyhow = "1"
 
+[dev-dependencies]
+# Simple HTTP client for E2E tests
+ureq = { version = "2", features = ["json"] }
+serde_json = "1"
+
 [[test]]
 name = "wasm_component"
 path = "tests/wasm_component.rs"
+
+[[test]]
+name = "wasm_e2e"
+path = "tests/wasm_e2e.rs"
 
 # Not part of parent workspace - run separately
 [workspace]

@@ -1824,3 +1824,346 @@ mod to_json_tests {
         }
     }
 }
+
+// =========================================================================
+// COVERAGE IMPROVEMENT TESTS - Target uncovered code paths
+// =========================================================================
+
+mod coverage_tests {
+    use super::*;
+
+    // -------------------------------------------------------------------------
+    // Lazy scanner edge cases (lazy.rs)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_lazy_empty_path_on_object() {
+        // Empty path should check existence of root value
+        let json = br#"{"key": "value"}"#;
+        assert!(lazy::path_exists(json, &[]));
+    }
+
+    #[test]
+    fn test_lazy_empty_path_on_string() {
+        let json = br#""hello""#;
+        assert!(lazy::path_exists(json, &[]));
+    }
+
+    #[test]
+    fn test_lazy_empty_path_on_number() {
+        let json = br"42";
+        assert!(lazy::path_exists(json, &[]));
+    }
+
+    #[test]
+    fn test_lazy_path_on_array_root() {
+        // Root is array, not object - path lookup should return None
+        let json = br"[1, 2, 3]";
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+        assert_eq!(lazy::path_int(json, &["0"]), None);
+    }
+
+    #[test]
+    fn test_lazy_path_on_string_root() {
+        let json = br#""hello""#;
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_path_on_number_root() {
+        let json = br"42";
+        assert_eq!(lazy::path_int(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_unterminated_string_value() {
+        let json = br#"{"key": "hello"#;
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_unterminated_string_key() {
+        let json = br#"{"key: "value"}"#;
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_missing_colon() {
+        let json = br#"{"key" "value"}"#;
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_wrong_separator() {
+        let json = br#"{"key"; "value"}"#;
+        assert_eq!(lazy::path_str(json, &["key"]), None);
+    }
+
+    #[test]
+    fn test_lazy_invalid_true_literal() {
+        let json = br#"{"flag": tru}"#;
+        assert_eq!(lazy::path_bool(json, &["flag"]), None);
+    }
+
+    #[test]
+    fn test_lazy_invalid_false_literal() {
+        let json = br#"{"flag": fals}"#;
+        assert_eq!(lazy::path_bool(json, &["flag"]), None);
+    }
+
+    #[test]
+    fn test_lazy_invalid_null_literal() {
+        let json = br#"{"val": nul}"#;
+        assert!(!lazy::path_is_null(json, &["val"]));
+    }
+
+    #[test]
+    fn test_lazy_unbalanced_object() {
+        // Parser is lenient - finds value even in unbalanced JSON
+        let json = br#"{"key": {"nested": 1}"#;
+        // The value is found before the unbalanced end is reached
+        assert_eq!(lazy::path_int(json, &["key", "nested"]), Some(1));
+    }
+
+    #[test]
+    fn test_lazy_unbalanced_array() {
+        let json = br#"{"arr": [1, 2, 3}"#;
+        // Try to access something after the broken array
+        assert_eq!(lazy::path_str(json, &["other"]), None);
+    }
+
+    #[test]
+    fn test_lazy_int_from_float_with_fraction() {
+        let json = br#"{"num": 42.5}"#;
+        // Should return None because 42.5 has fractional part
+        assert_eq!(lazy::path_int(json, &["num"]), None);
+    }
+
+    #[test]
+    fn test_lazy_int_from_float_whole_number() {
+        let json = br#"{"num": 42.0}"#;
+        // Should succeed because 42.0 has no fractional part
+        assert_eq!(lazy::path_int(json, &["num"]), Some(42));
+    }
+
+    // -------------------------------------------------------------------------
+    // Escape sequence tests (lazy.rs unescape_string)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_unescape_backspace() {
+        let json = br#"{"msg": "hello\bworld"}"#;
+        let result = lazy::path_str(json, &["msg"]);
+        assert_eq!(result, Some("hello\x08world".to_string()));
+    }
+
+    #[test]
+    fn test_unescape_formfeed() {
+        let json = br#"{"msg": "hello\fworld"}"#;
+        let result = lazy::path_str(json, &["msg"]);
+        assert_eq!(result, Some("hello\x0Cworld".to_string()));
+    }
+
+    #[test]
+    fn test_unescape_unicode_valid() {
+        let json = br#"{"msg": "\u0041\u0042\u0043"}"#;
+        let result = lazy::path_str(json, &["msg"]);
+        assert_eq!(result, Some("ABC".to_string()));
+    }
+
+    #[test]
+    fn test_unescape_unicode_invalid_hex() {
+        let json = br#"{"msg": "\uXXXX"}"#;
+        let result = lazy::path_str(json, &["msg"]);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_unescape_unicode_incomplete() {
+        // Incomplete unicode at end of string - parser behavior varies
+        let json = br#"{"msg": "\u00"}"#;
+        let result = lazy::path_str(json, &["msg"]);
+        // Parser handles this gracefully (may succeed with partial)
+        // Just verify it doesn't panic
+        let _ = result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tree mode fallback tests (value.rs)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_path_int_tree_mode_u64_within_range() {
+        // Create a parsed (not lazy) value with number that fits in i64
+        let v = obj().set("data", obj().set("n", int(100)));
+        assert_eq!(v.path_int(&["data", "n"]), Some(100));
+    }
+
+    #[test]
+    fn test_path_float_tree_mode_from_int() {
+        let v = obj().set("data", obj().set("n", int(42)));
+        assert_eq!(v.path_float(&["data", "n"]), Some(42.0));
+    }
+
+    #[test]
+    fn test_path_through_non_object_intermediate() {
+        // Path traversal where intermediate value is not an object
+        let json = br#"{"user": "not_an_object"}"#;
+        let v = try_parse(json).unwrap();
+        assert_eq!(v.path_str(&["user", "name"]), None);
+    }
+
+    #[test]
+    fn test_path_through_array_intermediate() {
+        let json = br#"{"user": [1, 2, 3]}"#;
+        let v = try_parse(json).unwrap();
+        assert_eq!(v.path_str(&["user", "name"]), None);
+    }
+
+    // -------------------------------------------------------------------------
+    // Lazy to parsed conversion (value.rs get_parsed_mut)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_set_on_lazy_triggers_parse() {
+        let json = br#"{"existing": "value"}"#;
+        let v = try_parse(json).unwrap();
+        // set() triggers get_parsed_mut
+        let v2 = v.set("new_key", int(42));
+        assert_eq!(v2.get("new_key").int(), Some(42));
+        assert_eq!(v2.get("existing").str(), Some("value".to_string()));
+    }
+
+    #[test]
+    fn test_push_on_lazy_array_triggers_parse() {
+        let json = br"[1, 2, 3]";
+        let v = try_parse(json).unwrap();
+        let v2 = v.push(int(4));
+        assert_eq!(v2.len(), Some(4));
+    }
+
+    // -------------------------------------------------------------------------
+    // Display implementation edge cases
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_display_lazy_mode() {
+        let json = br#"{"key": "value"}"#;
+        let v = try_parse(json).unwrap();
+        let display = format!("{v}");
+        assert!(display.contains("key"));
+        assert!(display.contains("value"));
+    }
+
+    #[test]
+    fn test_display_parsed_mode() {
+        let v = obj().set("key", str("value"));
+        let display = format!("{v}");
+        assert!(display.contains("key"));
+        assert!(display.contains("value"));
+    }
+
+    // -------------------------------------------------------------------------
+    // map_array edge cases
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_map_array_with_mixed_types() {
+        let json = br#"{"items": [1, "two", 3]}"#;
+        let v = try_parse_full(json).unwrap();
+        // map_array with int extraction should fail on "two"
+        let result: Option<Vec<i64>> = v.get("items").map_array(raw_int);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_try_map_array_with_mixed_types() {
+        let json = br#"{"items": [1, "two", 3]}"#;
+        let v = try_parse_full(json).unwrap();
+        let result = v
+            .get("items")
+            .try_map_array(|item| raw_int(item).ok_or("not int"));
+        // try_map_array returns Option<Result<...>>
+        assert!(result.is_some());
+        assert!(result.unwrap().is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // Raw value helpers (mod.rs) - test via parsed JSON
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_large_int_at_max_safe_boundary() {
+        // Test exactly at MAX_SAFE_INT boundary via JSON
+        let json = br#"{"n": 9007199254740992}"#; // 2^53
+        let v = try_parse_full(json).unwrap();
+        assert!(v.path_int(&["n"]).is_some());
+    }
+
+    #[test]
+    fn test_large_int_beyond_max_safe() {
+        // Beyond MAX_SAFE_INT - precision considerations
+        let json = br#"{"n": 9007199254740994}"#; // 2^53 + 2
+        let v = try_parse_full(json).unwrap();
+        // Should still parse
+        let _ = v.path_int(&["n"]);
+    }
+
+    #[test]
+    fn test_float_from_large_u64() {
+        // Large u64 value as float
+        let json = br#"{"n": 18446744073709551615}"#; // u64::MAX
+        let v = try_parse_full(json).unwrap();
+        let result = v.path_float(&["n"]);
+        assert!(result.is_some());
+    }
+
+    // -------------------------------------------------------------------------
+    // Depth limit edge cases
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_depth_exactly_at_limit() {
+        // Build JSON with exactly MAX_JSON_DEPTH levels
+        let mut json = String::new();
+        for _ in 0..20 {
+            json.push_str("{\"a\":");
+        }
+        json.push('1');
+        for _ in 0..20 {
+            json.push('}');
+        }
+        // Should succeed at exactly the limit
+        assert!(try_parse(json.as_bytes()).is_some());
+    }
+
+    #[test]
+    fn test_depth_one_over_limit() {
+        // Build JSON with MAX_JSON_DEPTH + 1 levels
+        let mut json = String::new();
+        for _ in 0..21 {
+            json.push_str("{\"a\":");
+        }
+        json.push('1');
+        for _ in 0..21 {
+            json.push('}');
+        }
+        // Should fail
+        assert!(try_parse(json.as_bytes()).is_none());
+    }
+
+    // -------------------------------------------------------------------------
+    // Size limit edge cases
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn test_json_at_size_limit() {
+        use crate::constants::MAX_JSON_SIZE;
+        // Create JSON just under the limit
+        let padding = "a".repeat(MAX_JSON_SIZE - 20);
+        let json = format!(r#"{{"x": "{padding}"}}"#);
+        if json.len() <= MAX_JSON_SIZE {
+            assert!(try_parse(json.as_bytes()).is_some());
+        }
+    }
+}
