@@ -106,10 +106,10 @@
 //!
 //! The SDK and bridge can be configured via environment variables:
 //!
-//! | Variable | Default | Description |
-//! |----------|---------|-------------|
-//! | `MIK_MAX_JSON_SIZE` | 1MB | Maximum JSON input size for parsing |
-//! | `MIK_MAX_BODY_SIZE` | 10MB | Maximum request body size (bridge) |
+//! | Variable             | Default | Description                          |
+//! |----------------------|---------|--------------------------------------|
+//! | `MIK_MAX_JSON_SIZE`  | 1 MB    | Maximum JSON input size for parsing  |
+//! | `MIK_MAX_BODY_SIZE`  | 10 MB   | Maximum request body size (bridge)   |
 //!
 //! ```bash
 //! # Allow 5MB JSON payloads

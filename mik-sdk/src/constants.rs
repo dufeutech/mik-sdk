@@ -7,10 +7,10 @@
 //!
 //! Some limits can be configured via environment variables:
 //!
-//! | Variable | Default | Description |
-//! |----------|---------|-------------|
-//! | `MIK_MAX_JSON_SIZE` | 1MB (1,000,000) | Maximum JSON input size |
-//! | `MIK_MAX_BODY_SIZE` | 10MB (10,485,760) | Maximum request body size (bridge) |
+//! | Variable             | Default            | Description                        |
+//! |----------------------|--------------------|------------------------------------|
+//! | `MIK_MAX_JSON_SIZE`  | 1 MB (1,000,000)   | Maximum JSON input size            |
+//! | `MIK_MAX_BODY_SIZE`  | 10 MB (10,485,760) | Maximum request body size (bridge) |
 //!
 //! ## Example
 //!
