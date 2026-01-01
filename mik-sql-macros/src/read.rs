@@ -12,11 +12,11 @@ use syn::{
     token,
 };
 
-use crate::common::{
-    SqlAggregate, SqlCompute, SqlDialect, SqlFilterExpr, SqlSort, compute_expr_to_sql,
+use crate::codegen::{compute_expr_to_sql, sql_aggregate_to_tokens, sql_filter_expr_to_tokens};
+use crate::parse::{
     parse_aggregates, parse_compute_fields, parse_filter_block, parse_optional_dialect,
-    sql_aggregate_to_tokens, sql_filter_expr_to_tokens,
 };
+use crate::types::{SqlAggregate, SqlCompute, SqlDialect, SqlFilterExpr, SqlSort};
 
 /// Input for the [`sql_read!`] macro.
 struct SqlInput {

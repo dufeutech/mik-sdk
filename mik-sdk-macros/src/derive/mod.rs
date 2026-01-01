@@ -194,106 +194,25 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
 }
 
 // ============================================================================
-// TYPE HELPERS
+// TYPE HELPERS (delegating to centralized type_registry)
 // ============================================================================
 
-pub fn is_option_type(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-    {
-        return segment.ident == "Option";
-    }
-    false
-}
+// Re-export from type_registry for backward compatibility
+pub use crate::type_registry::{get_inner_type, is_option_type};
 
-pub fn get_inner_type(ty: &Type) -> Option<&Type> {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
-        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
-    {
-        return Some(inner);
-    }
-    None
-}
-
+/// Get OpenAPI schema for a type.
 pub fn type_to_openapi(ty: &Type) -> String {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-    {
-        let name = segment.ident.to_string();
-        return match name.as_str() {
-            "String" | "str" => r#"{"type":"string"}"#.to_string(),
-            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "isize" | "usize" => {
-                r#"{"type":"integer"}"#.to_string()
-            },
-            "f32" | "f64" => r#"{"type":"number"}"#.to_string(),
-            "bool" => r#"{"type":"boolean"}"#.to_string(),
-            "Option" => get_inner_type(ty).map_or_else(
-                || r#"{"type":"object","nullable":true}"#.to_string(),
-                |inner| {
-                    let inner_schema = type_to_openapi(inner);
-                    // Remove the outer braces and add nullable (safe extraction)
-                    let inner_content = inner_schema
-                        .strip_prefix('{')
-                        .and_then(|s| s.strip_suffix('}'))
-                        .unwrap_or(&inner_schema);
-                    format!("{{{inner_content},\"nullable\":true}}")
-                },
-            ),
-            "Vec" => get_inner_type(ty).map_or_else(
-                || r#"{"type":"array"}"#.to_string(),
-                |inner| {
-                    let inner_schema = type_to_openapi(inner);
-                    format!(r#"{{"type":"array","items":{inner_schema}}}"#)
-                },
-            ),
-            _ => {
-                // Assume it's a reference to another schema
-                format!("{{\"$ref\":\"#/components/schemas/{name}\"}}")
-            },
-        };
-    }
-    r#"{"type":"object"}"#.to_string()
+    crate::type_registry::get_openapi_schema(ty)
 }
 
+/// Get JSON getter TokenStream for a type.
 pub fn rust_type_to_json_getter(ty: &Type) -> Option<TokenStream2> {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-    {
-        let name = segment.ident.to_string();
-        return match name.as_str() {
-            "String" => Some(quote! { .str() }),
-            "i8" | "i16" | "i32" | "u8" | "u16" | "u32" | "u64" | "usize" => {
-                Some(quote! { .int().map(|n| n as _) })
-            },
-            "i64" => Some(quote! { .int() }),
-            "f32" => Some(quote! { .float().map(|n| n as f32) }),
-            "f64" => Some(quote! { .float() }),
-            "bool" => Some(quote! { .bool() }),
-            _ => None, // Complex type - use FromJson trait
-        };
-    }
-    None
+    crate::type_registry::get_json_getter(ty)
 }
 
-/// Get a human-readable type name for error messages
+/// Get a human-readable type name for error messages.
 pub fn rust_type_to_name(ty: &Type) -> &'static str {
-    if let Type::Path(type_path) = ty
-        && let Some(segment) = type_path.path.segments.last()
-    {
-        let name = segment.ident.to_string();
-        return match name.as_str() {
-            "String" => "string",
-            "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64" | "usize" => "integer",
-            "f32" | "f64" => "number",
-            "bool" => "boolean",
-            "Vec" => "array",
-            "Option" => "value",
-            _ => "object",
-        };
-    }
-    "value"
+    crate::type_registry::get_type_name(ty)
 }
 
 // ============================================================================

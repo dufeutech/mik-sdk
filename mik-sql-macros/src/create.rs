@@ -10,9 +10,9 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::common::{
-    SqlDialect, SqlValue, parse_optional_dialect, parse_sql_value, sql_value_to_tokens,
-};
+use crate::codegen::sql_value_to_tokens;
+use crate::parse::{parse_optional_dialect, parse_sql_value};
+use crate::types::{SqlDialect, SqlValue};
 
 struct InsertInput {
     dialect: SqlDialect,

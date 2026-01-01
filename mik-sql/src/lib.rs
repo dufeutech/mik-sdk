@@ -126,8 +126,11 @@ pub use validate::{
     is_valid_sql_expression, is_valid_sql_identifier, merge_filters,
 };
 
-// Re-export macros from mik-sql-macros
-pub use mik_sql_macros::{ids, sql_create, sql_delete, sql_read, sql_update};
+// Re-export SQL macros from mik-sql-macros
+pub use mik_sql_macros::{sql_create, sql_delete, sql_read, sql_update};
+
+// Re-export ids! from mik-sdk-macros (consolidated location)
+pub use mik_sdk_macros::ids;
 
 /// Build a query for Postgres.
 ///
@@ -163,7 +166,8 @@ pub mod prelude {
     };
 
     // Re-export macros
-    pub use mik_sql_macros::{ids, sql_create, sql_delete, sql_read, sql_update};
+    pub use mik_sdk_macros::ids;
+    pub use mik_sql_macros::{sql_create, sql_delete, sql_read, sql_update};
 }
 
 #[cfg(test)]

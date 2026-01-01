@@ -534,9 +534,22 @@ pub fn redirect_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-pub fn not_found_impl(input: TokenStream) -> TokenStream {
+// ============================================================================
+// SIMPLE ERROR RESPONSE BUILDER (shared by not_found!, conflict!, etc.)
+// ============================================================================
+
+/// Configuration for simple error response macros.
+struct SimpleErrorConfig {
+    status: u16,
+    default_detail: &'static str,
+}
+
+/// Build a simple RFC 7807 error response with configurable status and detail.
+fn simple_error_response(config: SimpleErrorConfig, input: TokenStream) -> TokenStream {
+    let status = config.status;
     let detail = if input.is_empty() {
-        quote! { "Not Found" }
+        let default = config.default_detail;
+        quote! { #default }
     } else {
         let expr = parse_macro_input!(input as Expr);
         quote! { #expr }
@@ -546,11 +559,11 @@ pub fn not_found_impl(input: TokenStream) -> TokenStream {
         {
             let __mik_sdk_body = json::obj()
                 .set("type", json::str("about:blank"))
-                .set("title", json::str(::mik_sdk::constants::status_title(404)))
-                .set("status", json::int(404))
+                .set("title", json::str(::mik_sdk::constants::status_title(#status)))
+                .set("status", json::int(#status as i64))
                 .set("detail", json::str(#detail));
             handler::Response {
-                status: 404,
+                status: #status,
                 headers: vec![
                     (
                         ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
@@ -563,6 +576,16 @@ pub fn not_found_impl(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(tokens)
+}
+
+pub fn not_found_impl(input: TokenStream) -> TokenStream {
+    simple_error_response(
+        SimpleErrorConfig {
+            status: 404,
+            default_detail: "Not Found",
+        },
+        input,
+    )
 }
 
 /// Return 409 Conflict response.
@@ -580,34 +603,13 @@ pub fn not_found_impl(input: TokenStream) -> TokenStream {
 /// conflict!(format!("Email {} is taken", email))
 /// ```
 pub fn conflict_impl(input: TokenStream) -> TokenStream {
-    let detail = if input.is_empty() {
-        quote! { "Conflict" }
-    } else {
-        let expr = parse_macro_input!(input as Expr);
-        quote! { #expr }
-    };
-
-    let tokens = quote! {
-        {
-            let __mik_sdk_body = json::obj()
-                .set("type", json::str("about:blank"))
-                .set("title", json::str(::mik_sdk::constants::status_title(409)))
-                .set("status", json::int(409))
-                .set("detail", json::str(#detail));
-            handler::Response {
-                status: 409,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
-                    )
-                ],
-                body: Some(__mik_sdk_body.to_bytes()),
-            }
-        }
-    };
-
-    TokenStream::from(tokens)
+    simple_error_response(
+        SimpleErrorConfig {
+            status: 409,
+            default_detail: "Conflict",
+        },
+        input,
+    )
 }
 
 /// Return 403 Forbidden response.
@@ -625,34 +627,13 @@ pub fn conflict_impl(input: TokenStream) -> TokenStream {
 /// forbidden!(format!("Access denied for user {}", user_id))
 /// ```
 pub fn forbidden_impl(input: TokenStream) -> TokenStream {
-    let detail = if input.is_empty() {
-        quote! { "Forbidden" }
-    } else {
-        let expr = parse_macro_input!(input as Expr);
-        quote! { #expr }
-    };
-
-    let tokens = quote! {
-        {
-            let __mik_sdk_body = json::obj()
-                .set("type", json::str("about:blank"))
-                .set("title", json::str(::mik_sdk::constants::status_title(403)))
-                .set("status", json::int(403))
-                .set("detail", json::str(#detail));
-            handler::Response {
-                status: 403,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
-                    )
-                ],
-                body: Some(__mik_sdk_body.to_bytes()),
-            }
-        }
-    };
-
-    TokenStream::from(tokens)
+    simple_error_response(
+        SimpleErrorConfig {
+            status: 403,
+            default_detail: "Forbidden",
+        },
+        input,
+    )
 }
 
 /// Return 400 Bad Request response.
@@ -670,34 +651,13 @@ pub fn forbidden_impl(input: TokenStream) -> TokenStream {
 /// bad_request!(format!("Field {} is required", field))
 /// ```
 pub fn bad_request_impl(input: TokenStream) -> TokenStream {
-    let detail = if input.is_empty() {
-        quote! { "Bad Request" }
-    } else {
-        let expr = parse_macro_input!(input as Expr);
-        quote! { #expr }
-    };
-
-    let tokens = quote! {
-        {
-            let __mik_sdk_body = json::obj()
-                .set("type", json::str("about:blank"))
-                .set("title", json::str(::mik_sdk::constants::status_title(400)))
-                .set("status", json::int(400))
-                .set("detail", json::str(#detail));
-            handler::Response {
-                status: 400,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
-                    )
-                ],
-                body: Some(__mik_sdk_body.to_bytes()),
-            }
-        }
-    };
-
-    TokenStream::from(tokens)
+    simple_error_response(
+        SimpleErrorConfig {
+            status: 400,
+            default_detail: "Bad Request",
+        },
+        input,
+    )
 }
 
 /// Return 202 Accepted response.

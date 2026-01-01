@@ -9,10 +9,9 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::common::{
-    SqlDialect, SqlFilterExpr, parse_filter_block, parse_optional_dialect,
-    sql_filter_expr_to_tokens,
-};
+use crate::codegen::sql_filter_expr_to_tokens;
+use crate::parse::{parse_filter_block, parse_optional_dialect};
+use crate::types::{SqlDialect, SqlFilterExpr};
 
 struct DeleteInput {
     dialect: SqlDialect,

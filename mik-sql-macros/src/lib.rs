@@ -20,17 +20,13 @@
 //! Proc-macros for mik-sql - SQL query builder with Mongo-style filters.
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{
-    Expr, Result, Token,
-    parse::{Parse, ParseStream},
-    parse_macro_input,
-};
 
-mod common;
+mod codegen;
 mod create;
 mod delete;
+mod parse;
 mod read;
+mod types;
 mod update;
 
 // ============================================================================
@@ -95,47 +91,5 @@ pub fn sql_delete(input: TokenStream) -> TokenStream {
     delete::sql_delete_impl(input)
 }
 
-// ============================================================================
-// IDS MACRO - Collect field values from a list for batched loading
-// ============================================================================
-
-/// Collect field values from a list for batched loading.
-///
-/// # Example
-/// ```ignore
-/// let user_ids = ids!(users);           // extracts .id from each item
-/// let author_ids = ids!(posts, author_id);  // extracts .author_id from each item
-/// ```
-#[proc_macro]
-pub fn ids(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as IdsInput);
-
-    let list = &input.list;
-    let field = &input.field;
-
-    let tokens = quote! {
-        #list.iter().map(|__item| __item.#field.clone()).collect::<Vec<_>>()
-    };
-
-    TokenStream::from(tokens)
-}
-
-struct IdsInput {
-    list: Expr,
-    field: syn::Ident,
-}
-
-impl Parse for IdsInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let list: Expr = input.parse()?;
-
-        let field = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            input.parse()?
-        } else {
-            syn::Ident::new("id", proc_macro2::Span::call_site())
-        };
-
-        Ok(Self { list, field })
-    }
-}
+// Note: ids! macro has been consolidated into mik-sdk-macros
+// Users get ids! via mik-sdk or mik-sql (which re-exports from mik-sdk-macros)

@@ -27,11 +27,14 @@ use proc_macro::TokenStream;
 
 mod derive;
 mod dx;
+mod errors;
 mod http_client;
 mod ids;
 mod json;
+mod openapi;
 mod response;
 mod schema;
+mod type_registry;
 
 // Re-export internal types needed by other modules
 

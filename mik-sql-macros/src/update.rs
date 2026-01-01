@@ -10,10 +10,9 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::common::{
-    SqlDialect, SqlFilterExpr, SqlValue, parse_column_values, parse_filter_block,
-    parse_optional_dialect, sql_filter_expr_to_tokens, sql_value_to_tokens,
-};
+use crate::codegen::{sql_filter_expr_to_tokens, sql_value_to_tokens};
+use crate::parse::{parse_column_values, parse_filter_block, parse_optional_dialect};
+use crate::types::{SqlDialect, SqlFilterExpr, SqlValue};
 
 struct UpdateInput {
     dialect: SqlDialect,
