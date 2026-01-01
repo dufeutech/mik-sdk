@@ -3,7 +3,7 @@ title: Responses
 description: Response macros and building HTTP responses
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk provides a rich set of macros for building HTTP responses with proper status codes, headers, and JSON bodies.
 
@@ -36,8 +36,9 @@ fn get_user(path: Id, _req: &Request) -> Response {
 ```
 
 Output:
+
 ```json
-{"id":"123","name":"Alice","email":"alice@example.com"}
+{ "id": "123", "name": "Alice", "email": "alice@example.com" }
 ```
 
 ### Type Inference
@@ -78,6 +79,7 @@ fn create_user(body: CreateInput, _req: &Request) -> Response {
 ```
 
 Response headers include:
+
 ```
 Location: /users/550e8400-e29b-41d4-...
 ```
@@ -160,6 +162,7 @@ fn handler(_req: &Request) -> Response {
 ```
 
 Output:
+
 ```json
 {
   "type": "about:blank",
@@ -188,6 +191,7 @@ fn handler(_req: &Request) -> Response {
 ```
 
 Output:
+
 ```json
 {
   "type": "urn:problem:validation",
@@ -218,6 +222,7 @@ fn create_user(body: CreateInput, _req: &Request) -> Response {
 ```
 
 If any guard fails, returns:
+
 ```json
 {
   "type": "about:blank",
@@ -269,44 +274,44 @@ fn handler(_req: &Request) -> Response {
 
 Available constants:
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `status::OK` | 200 | OK |
-| `status::CREATED` | 201 | Created |
-| `status::ACCEPTED` | 202 | Accepted |
-| `status::NO_CONTENT` | 204 | No Content |
-| `status::MOVED_PERMANENTLY` | 301 | Moved Permanently |
-| `status::FOUND` | 302 | Found (redirect) |
-| `status::NOT_MODIFIED` | 304 | Not Modified |
-| `status::TEMPORARY_REDIRECT` | 307 | Temporary Redirect |
-| `status::PERMANENT_REDIRECT` | 308 | Permanent Redirect |
-| `status::BAD_REQUEST` | 400 | Bad Request |
-| `status::UNAUTHORIZED` | 401 | Unauthorized |
-| `status::FORBIDDEN` | 403 | Forbidden |
-| `status::NOT_FOUND` | 404 | Not Found |
-| `status::METHOD_NOT_ALLOWED` | 405 | Method Not Allowed |
-| `status::NOT_ACCEPTABLE` | 406 | Not Acceptable |
-| `status::CONFLICT` | 409 | Conflict |
-| `status::GONE` | 410 | Gone |
-| `status::UNPROCESSABLE_ENTITY` | 422 | Unprocessable Entity |
-| `status::TOO_MANY_REQUESTS` | 429 | Too Many Requests |
-| `status::INTERNAL_SERVER_ERROR` | 500 | Internal Server Error |
-| `status::NOT_IMPLEMENTED` | 501 | Not Implemented |
-| `status::BAD_GATEWAY` | 502 | Bad Gateway |
-| `status::SERVICE_UNAVAILABLE` | 503 | Service Unavailable |
-| `status::GATEWAY_TIMEOUT` | 504 | Gateway Timeout |
+| Constant                        | Value | Description           |
+| ------------------------------- | ----- | --------------------- |
+| `status::OK`                    | 200   | OK                    |
+| `status::CREATED`               | 201   | Created               |
+| `status::ACCEPTED`              | 202   | Accepted              |
+| `status::NO_CONTENT`            | 204   | No Content            |
+| `status::MOVED_PERMANENTLY`     | 301   | Moved Permanently     |
+| `status::FOUND`                 | 302   | Found (redirect)      |
+| `status::NOT_MODIFIED`          | 304   | Not Modified          |
+| `status::TEMPORARY_REDIRECT`    | 307   | Temporary Redirect    |
+| `status::PERMANENT_REDIRECT`    | 308   | Permanent Redirect    |
+| `status::BAD_REQUEST`           | 400   | Bad Request           |
+| `status::UNAUTHORIZED`          | 401   | Unauthorized          |
+| `status::FORBIDDEN`             | 403   | Forbidden             |
+| `status::NOT_FOUND`             | 404   | Not Found             |
+| `status::METHOD_NOT_ALLOWED`    | 405   | Method Not Allowed    |
+| `status::NOT_ACCEPTABLE`        | 406   | Not Acceptable        |
+| `status::CONFLICT`              | 409   | Conflict              |
+| `status::GONE`                  | 410   | Gone                  |
+| `status::UNPROCESSABLE_ENTITY`  | 422   | Unprocessable Entity  |
+| `status::TOO_MANY_REQUESTS`     | 429   | Too Many Requests     |
+| `status::INTERNAL_SERVER_ERROR` | 500   | Internal Server Error |
+| `status::NOT_IMPLEMENTED`       | 501   | Not Implemented       |
+| `status::BAD_GATEWAY`           | 502   | Bad Gateway           |
+| `status::SERVICE_UNAVAILABLE`   | 503   | Service Unavailable   |
+| `status::GATEWAY_TIMEOUT`       | 504   | Gateway Timeout       |
 
 ## Response Macro Summary
 
-| Macro | Status | Use Case |
-|-------|--------|----------|
-| `ok!({ ... })` | 200 | Successful response with JSON |
-| `created!(loc, { ... })` | 201 | Resource created |
-| `accepted!()` | 202 | Async processing accepted |
-| `no_content!()` | 204 | Success, no body |
-| `redirect!(url)` | 302 | Redirect to URL |
-| `bad_request!(msg)` | 400 | Invalid request |
-| `forbidden!(msg)` | 403 | Access denied |
-| `not_found!(msg)` | 404 | Resource not found |
-| `conflict!(msg)` | 409 | Conflict with state |
-| `error! { ... }` | any | Full RFC 7807 error |
+| Macro                    | Status | Use Case                      |
+| ------------------------ | ------ | ----------------------------- |
+| `ok!({ ... })`           | 200    | Successful response with JSON |
+| `created!(loc, { ... })` | 201    | Resource created              |
+| `accepted!()`            | 202    | Async processing accepted     |
+| `no_content!()`          | 204    | Success, no body              |
+| `redirect!(url)`         | 302    | Redirect to URL               |
+| `bad_request!(msg)`      | 400    | Invalid request               |
+| `forbidden!(msg)`        | 403    | Access denied                 |
+| `not_found!(msg)`        | 404    | Resource not found            |
+| `conflict!(msg)`         | 409    | Conflict with state           |
+| `error! { ... }`         | any    | Full RFC 7807 error           |

@@ -3,7 +3,7 @@ title: Troubleshooting
 description: Common issues and solutions when working with mik-sdk
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 This guide covers common issues you may encounter when developing with mik-sdk and their solutions.
 
@@ -12,11 +12,13 @@ This guide covers common issues you may encounter when developing with mik-sdk a
 ### Missing wasm32-wasip2 Target
 
 **Error:**
+
 ```
 error[E0463]: can't find crate for `core`
 ```
 
 **Solution:**
+
 ```bash
 rustup target add wasm32-wasip2
 ```
@@ -24,11 +26,13 @@ rustup target add wasm32-wasip2
 ### cargo-component Not Found
 
 **Error:**
+
 ```
 error: no such command: `component`
 ```
 
 **Solution:**
+
 ```bash
 cargo install cargo-component
 ```
@@ -36,6 +40,7 @@ cargo install cargo-component
 ### WIT Dependency Issues
 
 **Error:**
+
 ```
 error: failed to resolve package `mik:core`
 ```
@@ -52,6 +57,7 @@ my-handler/
 ```
 
 Your `wit/world.wit` should include:
+
 ```wit
 package my:handler;
 
@@ -63,6 +69,7 @@ world handler {
 ### Bindings Module Missing
 
 **Error:**
+
 ```
 error[E0433]: failed to resolve: could not find `bindings` in the crate root
 ```
@@ -70,6 +77,7 @@ error[E0433]: failed to resolve: could not find `bindings` in the crate root
 **Solution:** The `bindings` module is generated during build. Ensure you have:
 
 1. Correct `Cargo.toml` metadata:
+
 ```toml
 [package.metadata.component]
 package = "my:handler"
@@ -79,6 +87,7 @@ package = "my:handler"
 ```
 
 2. Build with cargo-component:
+
 ```bash
 cargo component build
 ```
@@ -88,11 +97,13 @@ cargo component build
 ### wasmtime Errors
 
 **Error:**
+
 ```
 Error: failed to run main module
 ```
 
 **Solution:** Use the `-S cli=y` flag for proper stdio support:
+
 ```bash
 wasmtime serve -S cli=y service.wasm
 ```
@@ -100,6 +111,7 @@ wasmtime serve -S cli=y service.wasm
 ### Component Composition Fails
 
 **Error:**
+
 ```
 error: failed to plug component
 ```
@@ -108,6 +120,7 @@ error: failed to plug component
 
 1. Use matching mik-bridge version
 2. Verify WIT versions match:
+
 ```bash
 wasm-tools component wit target/wasm32-wasip2/release/handler.wasm
 wasm-tools component wit mik-bridge.wasm
@@ -120,6 +133,7 @@ wasm-tools component wit mik-bridge.wasm
 **Possible causes:**
 
 1. **Routes not defined** - Ensure `routes!` macro is present:
+
 ```rust
 routes! {
     GET "/" => home,
@@ -127,6 +141,7 @@ routes! {
 ```
 
 2. **Wrong path format** - Paths must start with `/`:
+
 ```rust
 // Wrong
 GET "users" => list_users,
@@ -141,13 +156,14 @@ GET "/users" => list_users,
 
 ### JSON Parse Fails
 
-**Symptom:** `json::try_parse()` returns `None`.
+**Symptom:** `req.json()` or `resp.json()` returns `None`.
 
 **Possible causes:**
 
 1. **Invalid JSON** - Validate your JSON:
+
 ```rust
-if let Some(parsed) = json::try_parse(body) {
+if let Some(parsed) = req.json() {
     // Valid JSON
 } else {
     log::warn!("Invalid JSON received");
@@ -155,6 +171,7 @@ if let Some(parsed) = json::try_parse(body) {
 ```
 
 2. **Exceeds size limit** - Default max is 1MB:
+
 ```rust
 // Check size before parsing
 if body.len() > 1_000_000 {
@@ -163,6 +180,7 @@ if body.len() > 1_000_000 {
 ```
 
 3. **Exceeds depth limit** - Default max depth is 20:
+
 ```rust
 // Deeply nested JSON may be rejected
 ```
@@ -174,6 +192,7 @@ if body.len() > 1_000_000 {
 **Possible causes:**
 
 1. **Wrong path** - Check the actual JSON structure:
+
 ```rust
 // For {"user": {"name": "Alice"}}
 parsed.path_str(&["user", "name"])  // Correct
@@ -181,6 +200,7 @@ parsed.path_str(&["name"])          // Wrong - returns None
 ```
 
 2. **Wrong type** - Use the correct accessor:
+
 ```rust
 // For {"count": 42}
 parsed.path_str(&["count"])  // None - it's a number
@@ -218,7 +238,7 @@ pub struct ListQuery {
 ```
 
 <Aside type="note">
-`default` only works with `#[derive(Query)]`, not with `#[derive(Type)]`.
+  `default` only works with `#[derive(Query)]`, not with `#[derive(Type)]`.
 </Aside>
 
 ## HTTP Client Issues
@@ -226,15 +246,16 @@ pub struct ListQuery {
 ### Feature Not Enabled
 
 **Error:**
+
 ```
 error: cannot find macro `fetch` in this scope
 ```
 
-**Solution:** Enable the `http-client` feature:
+**Solution:** The `http-client` feature is enabled by default. If you disabled default features, re-enable it:
 
 ```toml
 [dependencies]
-mik-sdk = { version = "0.1", features = ["http-client"] }
+mik-sdk = { version = "0.1", default-features = false, features = ["http-client"] }
 ```
 
 ### Request Timeout
@@ -316,17 +337,20 @@ let name = parsed.get("user").get("name").str();
 **Solutions:**
 
 1. **Build in release mode:**
+
 ```bash
 cargo component build --release
 ```
 
 2. **Disable unused features:**
+
 ```toml
 [dependencies]
 mik-sdk = { version = "0.1", default-features = false }
 ```
 
 3. **Enable LTO:**
+
 ```toml
 [profile.release]
 lto = true

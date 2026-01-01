@@ -3,7 +3,7 @@ title: Random
 description: Cryptographically secure random value generation
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 The `random` module provides cryptographically secure random value generation using platform-native sources.
 
@@ -21,10 +21,10 @@ The `random` module is included in `mik_sdk::prelude::*`.
 
 ## Platform Support
 
-| Platform | Implementation |
-|----------|----------------|
-| WASM (wasm32-wasip2) | Native `wasi:random/random` |
-| Native (testing) | `getrandom` crate (OS entropy) |
+| Platform             | Implementation                 |
+| -------------------- | ------------------------------ |
+| WASM (wasm32-wasip2) | Native `wasi:random/random`    |
+| Native (testing)     | `getrandom` crate (OS entropy) |
 
 All functions use cryptographically secure randomness suitable for tokens, secrets, and UUIDs.
 
@@ -213,27 +213,24 @@ fn handler(req: &Request) -> Response {
 ## Security Notes
 
 <Aside type="tip">
-All random functions in this module use cryptographically secure randomness. They are suitable for:
-- Session tokens
-- API keys
-- Password reset tokens
-- Encryption keys
-- UUIDs
-- Any security-sensitive random values
+  All random functions in this module use cryptographically secure randomness.
+  They are suitable for: - Session tokens - API keys - Password reset tokens -
+  Encryption keys - UUIDs - Any security-sensitive random values
 </Aside>
 
 <Aside type="caution">
-The functions will panic if the underlying random number generator fails. This is extremely rare and indicates a critical system issue.
+  The functions will panic if the underlying random number generator fails. This
+  is extremely rare and indicates a critical system issue.
 </Aside>
 
 ## API Summary
 
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `random::uuid()` | `String` | UUID v4 (36 chars) |
-| `random::hex(n)` | `String` | n bytes as hex (2n chars) |
-| `random::bytes(n)` | `Vec<u8>` | n random bytes |
-| `random::u64()` | `u64` | Random 64-bit integer |
+| Function           | Returns   | Description               |
+| ------------------ | --------- | ------------------------- |
+| `random::uuid()`   | `String`  | UUID v4 (36 chars)        |
+| `random::hex(n)`   | `String`  | n bytes as hex (2n chars) |
+| `random::bytes(n)` | `Vec<u8>` | n random bytes            |
+| `random::u64()`    | `u64`     | Random 64-bit integer     |
 
 ## Examples
 

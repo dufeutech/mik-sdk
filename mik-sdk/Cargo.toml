@@ -13,9 +13,8 @@ categories = ["wasm", "web-programming"]
 crate-type = ["rlib"]
 
 [features]
-default = ["sql"]
+default = ["sql", "http-client"]
 sql = ["dep:mik-sql", "dep:mik-sql-macros"]
-# Enable HTTP client (.send() method) - only needed if making outbound HTTP calls
 http-client = ["dep:wit-bindgen-rt", "dep:wit-bindgen"]
 
 [dependencies]

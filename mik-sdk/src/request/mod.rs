@@ -12,6 +12,7 @@ use crate::constants::{
     HEADER_TRACE_ID, MAX_FORM_FIELDS, MAX_HEADER_VALUE_LEN, MAX_TOTAL_HEADERS_SIZE,
     MAX_URL_DECODED_LEN,
 };
+use crate::json::{self, JsonValue};
 use std::cell::OnceCell;
 use std::collections::HashMap;
 
@@ -474,6 +475,26 @@ impl Request {
     #[must_use]
     pub fn json_with<T>(&self, parse: impl FnOnce(&[u8]) -> Option<T>) -> Option<T> {
         self.body().and_then(parse)
+    }
+
+    /// Parse request body as JSON.
+    ///
+    /// Uses the built-in JSON parser. For custom parsers, use [`json_with`](Self::json_with).
+    ///
+    /// # Returns
+    ///
+    /// - `Some(JsonValue)` - Body successfully parsed as JSON
+    /// - `None` - No body, or body is not valid JSON
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let body = req.json()?;
+    /// let name = body.path_str(&["user", "name"]).unwrap_or("anonymous");
+    /// ```
+    #[must_use]
+    pub fn json(&self) -> Option<JsonValue> {
+        self.json_with(json::try_parse)
     }
 
     // --- Private helpers ---

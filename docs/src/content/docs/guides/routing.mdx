@@ -3,7 +3,7 @@ title: Routing
 description: Define type-safe routes with automatic input extraction
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk provides a declarative, type-safe routing system with automatic extraction of path parameters, query strings, and request bodies.
 
@@ -39,15 +39,15 @@ routes! {
 
 ### Supported HTTP Methods
 
-| Method | Usage |
-|--------|-------|
-| `GET` | Read resources |
-| `POST` | Create resources |
-| `PUT` | Replace resources |
-| `PATCH` | Partial update |
-| `DELETE` | Remove resources |
-| `HEAD` | Headers only |
-| `OPTIONS` | CORS preflight |
+| Method    | Usage             |
+| --------- | ----------------- |
+| `GET`     | Read resources    |
+| `POST`    | Create resources  |
+| `PUT`     | Replace resources |
+| `PATCH`   | Partial update    |
+| `DELETE`  | Remove resources  |
+| `HEAD`    | Headers only      |
+| `OPTIONS` | CORS preflight    |
 
 ### Path Patterns
 
@@ -108,6 +108,7 @@ fn get_user(path: Id, _req: &Request) -> Response {
     ok!({ "id": path.as_str() })
 }
 ```
+
 </Aside>
 
 ### Query Parameters
@@ -143,6 +144,7 @@ fn list_users(query: ListQuery, _req: &Request) -> Response {
 ```
 
 Query strings are parsed from the URL:
+
 ```
 /users?search=alice&page=2&limit=50
 ```
@@ -214,11 +216,13 @@ routes! {
 ```
 
 Response types are used for:
+
 - OpenAPI schema generation (`/__schema` endpoint)
 - Documentation
 
 <Aside type="note">
-Response types are optional and don't affect runtime behavior. The actual response is determined by what your handler returns.
+  Response types are optional and don't affect runtime behavior. The actual
+  response is determined by what your handler returns.
 </Aside>
 
 ## Field Attributes
@@ -261,22 +265,22 @@ pub struct PaginationQuery {
 }
 ```
 
-| Attribute | Types | Description |
-|-----------|-------|-------------|
-| `min` | String, Vec, numbers | Minimum length/value/items |
-| `max` | String, Vec, numbers | Maximum length/value/items |
-| `default` | Query fields | Default if missing |
-| `format` | String | OpenAPI format hint |
-| `pattern` | String | Regex pattern |
-| `rename` | Any | JSON field name |
-| `docs` | Any | OpenAPI description |
+| Attribute | Types                | Description                |
+| --------- | -------------------- | -------------------------- |
+| `min`     | String, Vec, numbers | Minimum length/value/items |
+| `max`     | String, Vec, numbers | Maximum length/value/items |
+| `default` | Query fields         | Default if missing         |
+| `format`  | String               | OpenAPI format hint        |
+| `pattern` | String               | Regex pattern              |
+| `rename`  | Any                  | JSON field name            |
+| `docs`    | Any                  | OpenAPI description        |
 
 ## Auto-Generated Endpoints
 
 The `routes!` macro automatically registers:
 
-| Endpoint | Description |
-|----------|-------------|
+| Endpoint    | Description         |
+| ----------- | ------------------- |
 | `/__schema` | OpenAPI JSON schema |
 
 ```bash
@@ -295,6 +299,7 @@ fn handler_name(
 ```
 
 The `Request` parameter is always available for accessing:
+
 - Headers
 - Raw body
 - Content-Type checks
@@ -321,9 +326,7 @@ Parsing errors are automatically returned as RFC 7807 responses:
   "title": "Validation Error",
   "status": 400,
   "detail": "Missing required field",
-  "errors": [
-    { "field": "name", "message": "field is required" }
-  ]
+  "errors": [{ "field": "name", "message": "field is required" }]
 }
 ```
 

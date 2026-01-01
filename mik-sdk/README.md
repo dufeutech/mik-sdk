@@ -210,6 +210,7 @@ Use in `ok!`, `json!`, and `error!` macros:
 | `trace_id()` | `Option<&str>` |
 | `body()` | `Option<&[u8]>` |
 | `text()` | `Option<&str>` |
+| `json()` | `Option<JsonValue>` |
 | `json_with(parser)` | `Option<T>` |
 | `form(name)` | `Option<&str>` |
 | `form_all(name)` | `&[String]` |

@@ -3,7 +3,7 @@ title: SQL Macros
 description: Generate parameterized SQL queries with Mongo-style filters
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk includes a SQL query builder that generates parameterized queries with Mongo-style filter syntax. The generated SQL can be executed by your database sidecar service.
 
@@ -109,7 +109,7 @@ let (sql, params) = sql_update!(users {
 ```
 
 <Aside type="caution">
-Always include a `filter` in UPDATE queries to avoid updating all rows.
+  Always include a `filter` in UPDATE queries to avoid updating all rows.
 </Aside>
 
 ### sql_delete! - DELETE
@@ -138,14 +138,14 @@ sql_read!(users {
 });
 ```
 
-| Operator | SQL | Description |
-|----------|-----|-------------|
-| `$eq` | `=` | Equal to |
-| `$ne` | `!=` | Not equal to |
-| `$gt` | `>` | Greater than |
-| `$gte` | `>=` | Greater than or equal |
-| `$lt` | `<` | Less than |
-| `$lte` | `<=` | Less than or equal |
+| Operator | SQL  | Description           |
+| -------- | ---- | --------------------- |
+| `$eq`    | `=`  | Equal to              |
+| `$ne`    | `!=` | Not equal to          |
+| `$gt`    | `>`  | Greater than          |
+| `$gte`   | `>=` | Greater than or equal |
+| `$lt`    | `<`  | Less than             |
+| `$lte`   | `<=` | Less than or equal    |
 
 ### List Operators
 
@@ -159,10 +159,10 @@ sql_read!(users {
 // role IN ($1, $2, $3) AND id NOT IN ($4, $5, $6)
 ```
 
-| Operator | SQL | Description |
-|----------|-----|-------------|
-| `$in` | `IN (...)` | Value in list |
-| `$nin` | `NOT IN (...)` | Value not in list |
+| Operator | SQL            | Description       |
+| -------- | -------------- | ----------------- |
+| `$in`    | `IN (...)`     | Value in list     |
+| `$nin`   | `NOT IN (...)` | Value not in list |
 
 ### Text Operators
 
@@ -178,13 +178,13 @@ sql_read!(users {
 });
 ```
 
-| Operator | SQL | Description |
-|----------|-----|-------------|
-| `$like` | `LIKE` | Pattern match |
-| `$ilike` | `ILIKE` | Case-insensitive LIKE |
-| `$starts_with` | `LIKE 'x%'` | Starts with |
-| `$ends_with` | `LIKE '%x'` | Ends with |
-| `$contains` | `LIKE '%x%'` | Contains |
+| Operator       | SQL          | Description           |
+| -------------- | ------------ | --------------------- |
+| `$like`        | `LIKE`       | Pattern match         |
+| `$ilike`       | `ILIKE`      | Case-insensitive LIKE |
+| `$starts_with` | `LIKE 'x%'`  | Starts with           |
+| `$ends_with`   | `LIKE '%x'`  | Ends with             |
+| `$contains`    | `LIKE '%x%'` | Contains              |
 
 ### Range Operator
 
@@ -337,7 +337,8 @@ fn list_posts(_req: &Request) -> Response {
 ```
 
 <Aside type="caution" title="Query Policy">
-**One query per table per request.** Never execute per-row queries. Use `$in` with `ids!` for related data.
+  **One query per table per request.** Never execute per-row queries. Use `$in`
+  with `ids!` for related data.
 </Aside>
 
 ## Type Hints
@@ -404,31 +405,31 @@ fn list_users(query: ListQuery, _req: &Request) -> Response {
 
 ### Macros
 
-| Macro | Purpose |
-|-------|---------|
-| `sql_read!(table { ... })` | SELECT query |
-| `sql_create!(table { ... })` | INSERT query |
-| `sql_update!(table { ... })` | UPDATE query |
-| `sql_delete!(table { ... })` | DELETE query |
-| `ids!(collection)` | Extract field values |
-| `ids!(collection, field)` | Extract specific field |
+| Macro                        | Purpose                |
+| ---------------------------- | ---------------------- |
+| `sql_read!(table { ... })`   | SELECT query           |
+| `sql_create!(table { ... })` | INSERT query           |
+| `sql_update!(table { ... })` | UPDATE query           |
+| `sql_delete!(table { ... })` | DELETE query           |
+| `ids!(collection)`           | Extract field values   |
+| `ids!(collection, field)`    | Extract specific field |
 
 ### sql_read! Options
 
-| Option | Description |
-|--------|-------------|
-| `select: [fields]` | Columns to select |
-| `filter: { ... }` | WHERE conditions |
-| `order: [fields]` | ORDER BY (prefix `-` for DESC) |
-| `limit: n` | LIMIT clause |
-| `page: n` | Page number (with limit) |
-| `after: cursor` | Cursor for keyset pagination |
+| Option             | Description                    |
+| ------------------ | ------------------------------ |
+| `select: [fields]` | Columns to select              |
+| `filter: { ... }`  | WHERE conditions               |
+| `order: [fields]`  | ORDER BY (prefix `-` for DESC) |
+| `limit: n`         | LIMIT clause                   |
+| `page: n`          | Page number (with limit)       |
+| `after: cursor`    | Cursor for keyset pagination   |
 
 ### Cursor Methods
 
-| Method | Description |
-|--------|-------------|
-| `Cursor::new()` | Create new cursor builder |
-| `.string(key, val)` | Add string field |
-| `.int(key, val)` | Add integer field |
-| `.encode()` | Encode to base64 string |
+| Method              | Description               |
+| ------------------- | ------------------------- |
+| `Cursor::new()`     | Create new cursor builder |
+| `.string(key, val)` | Add string field          |
+| `.int(key, val)`    | Add integer field         |
+| `.encode()`         | Encode to base64 string   |

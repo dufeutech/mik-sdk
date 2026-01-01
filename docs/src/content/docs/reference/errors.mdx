@@ -3,7 +3,7 @@ title: Error Types
 description: Error handling with ParseError and ValidationError
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk provides two error types for input parsing and validation: `ParseError` and `ValidationError`.
 
@@ -172,8 +172,8 @@ fn validate_input(value: &str) -> Result<String, ParseError> {
 The error types work well with `Result` and the `?` operator:
 
 ```rust
-fn parse_request(body: &[u8]) -> Result<UserInput, ParseError> {
-    let json = json::try_parse(body)
+fn parse_request(req: &Request) -> Result<UserInput, ParseError> {
+    let json = req.json()
         .ok_or_else(|| ParseError::custom("body", "Invalid JSON"))?;
 
     let name = json.path_str(&["name"])
@@ -252,25 +252,25 @@ match error {
 
 ### ParseError
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `missing(field)` | `ParseError` | Create MissingField |
-| `invalid_format(field, value)` | `ParseError` | Create InvalidFormat |
-| `type_mismatch(field, expected)` | `ParseError` | Create TypeMismatch |
-| `custom(field, message)` | `ParseError` | Create Custom |
-| `field()` | `&str` | Get field name |
-| `message()` | `String` | Get error message |
-| `with_path(path)` | `ParseError` | Add path prefix |
+| Method                           | Returns      | Description          |
+| -------------------------------- | ------------ | -------------------- |
+| `missing(field)`                 | `ParseError` | Create MissingField  |
+| `invalid_format(field, value)`   | `ParseError` | Create InvalidFormat |
+| `type_mismatch(field, expected)` | `ParseError` | Create TypeMismatch  |
+| `custom(field, message)`         | `ParseError` | Create Custom        |
+| `field()`                        | `&str`       | Get field name       |
+| `message()`                      | `String`     | Get error message    |
+| `with_path(path)`                | `ParseError` | Add path prefix      |
 
 ### ValidationError
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `min(field, min)` | `ValidationError` | Create Min |
-| `max(field, max)` | `ValidationError` | Create Max |
-| `pattern(field, pattern)` | `ValidationError` | Create Pattern |
-| `format(field, expected)` | `ValidationError` | Create Format |
-| `custom(field, constraint, msg)` | `ValidationError` | Create Custom |
-| `field()` | `&str` | Get field name |
-| `constraint()` | `&str` | Get constraint name |
-| `message()` | `String` | Get error message |
+| Method                           | Returns           | Description         |
+| -------------------------------- | ----------------- | ------------------- |
+| `min(field, min)`                | `ValidationError` | Create Min          |
+| `max(field, max)`                | `ValidationError` | Create Max          |
+| `pattern(field, pattern)`        | `ValidationError` | Create Pattern      |
+| `format(field, expected)`        | `ValidationError` | Create Format       |
+| `custom(field, constraint, msg)` | `ValidationError` | Create Custom       |
+| `field()`                        | `&str`            | Get field name      |
+| `constraint()`                   | `&str`            | Get constraint name |
+| `message()`                      | `String`          | Get error message   |

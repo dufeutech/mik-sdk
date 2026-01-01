@@ -3,7 +3,7 @@ title: Architecture
 description: Understanding the mik-sdk component architecture
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk uses a two-component architecture for WASI HTTP portability. This guide explains how the components work together.
 
@@ -40,13 +40,13 @@ flowchart TB
 
 Your handler contains:
 
-| Module | Implementation | Purpose |
-|--------|----------------|---------|
-| **Business Logic** | Your code | Request handling, validation, business rules |
-| **JSON** | Pure Rust | Parsing and building JSON (no WASI calls) |
-| **Time** | `wasi:clocks/wall-clock` | UTC timestamps, ISO 8601 |
-| **Random** | `wasi:random/random` | UUIDs, tokens, secure random |
-| **HTTP Client** | `wasi:http/outgoing-handler` | Outbound requests (optional) |
+| Module             | Implementation               | Purpose                                      |
+| ------------------ | ---------------------------- | -------------------------------------------- |
+| **Business Logic** | Your code                    | Request handling, validation, business rules |
+| **JSON**           | Pure Rust                    | Parsing and building JSON (no WASI calls)    |
+| **Time**           | `wasi:clocks/wall-clock`     | UTC timestamps, ISO 8601                     |
+| **Random**         | `wasi:random/random`         | UUIDs, tokens, secure random                 |
+| **HTTP Client**    | `wasi:http/outgoing-handler` | Outbound requests (optional)                 |
 
 The handler exports the `mik:core/handler` interface.
 
@@ -68,6 +68,7 @@ wac plug mik-bridge.wasm --plug handler.wasm -o service.wasm
 ```
 
 The resulting component:
+
 - Exports `wasi:http/incoming-handler`
 - Can run on any WASI HTTP runtime
 - Size: ~230KB (release build)
@@ -165,19 +166,20 @@ wasmtime serve -S cli=y service.wasm
 
 ## Component Sizes
 
-| Component | Debug | Release |
-|-----------|-------|---------|
-| Handler (basic) | ~500KB | ~158KB |
-| Handler (with http-client) | ~700KB | ~236KB |
-| Bridge | ~100KB | ~72KB |
-| Composed (basic) | ~600KB | ~230KB |
-| Composed (http-client) | ~800KB | ~308KB |
+| Component                  | Debug  | Release |
+| -------------------------- | ------ | ------- |
+| Handler (basic)            | ~500KB | ~158KB  |
+| Handler (with http-client) | ~700KB | ~236KB  |
+| Bridge                     | ~100KB | ~72KB   |
+| Composed (basic)           | ~600KB | ~230KB  |
+| Composed (http-client)     | ~800KB | ~308KB  |
 
 ### Optimization Tips
 
 1. **Use release builds:** `cargo component build --release`
 
 2. **Enable LTO:**
+
    ```toml
    [profile.release]
    lto = true
@@ -192,24 +194,24 @@ wasmtime serve -S cli=y service.wasm
 
 The handler component imports these WASI interfaces:
 
-| Interface | Purpose | Used By |
-|-----------|---------|---------|
-| `wasi:clocks/wall-clock` | Current time | `time::now()`, `time::now_iso()` |
-| `wasi:random/random` | Secure random | `random::uuid()`, `random::bytes()` |
-| `wasi:cli/environment` | Environment vars | `env::get()`, `env::require()` |
-| `wasi:cli/stderr` | Logging output | `log::info!()`, `log!()` |
-| `wasi:http/outgoing-handler` | HTTP client | `fetch!().send()` (optional) |
+| Interface                    | Purpose          | Used By                             |
+| ---------------------------- | ---------------- | ----------------------------------- |
+| `wasi:clocks/wall-clock`     | Current time     | `time::now()`, `time::now_iso()`    |
+| `wasi:random/random`         | Secure random    | `random::uuid()`, `random::bytes()` |
+| `wasi:cli/environment`       | Environment vars | `env::get()`, `env::require()`      |
+| `wasi:cli/stderr`            | Logging output   | `log::info!()`, `log!()`            |
+| `wasi:http/outgoing-handler` | HTTP client      | `fetch!().send()` (optional)        |
 
 ## Pure Rust Modules
 
 These modules require no WASI calls:
 
-| Module | Description |
-|--------|-------------|
-| `json` | JSON parsing and building |
-| `request` | Request wrapper and parsing |
-| `typed` | Derive macro implementations |
-| `query` | SQL query builder |
+| Module    | Description                  |
+| --------- | ---------------------------- |
+| `json`    | JSON parsing and building    |
+| `request` | Request wrapper and parsing  |
+| `typed`   | Derive macro implementations |
+| `query`   | SQL query builder            |
 
 This design means JSON operations are fast and don't cross the component boundary.
 
@@ -217,12 +219,12 @@ This design means JSON operations are fast and don't cross the component boundar
 
 The composed component runs on any WASI HTTP runtime:
 
-| Runtime | Command |
-|---------|---------|
+| Runtime  | Command                                |
+| -------- | -------------------------------------- |
 | wasmtime | `wasmtime serve -S cli=y service.wasm` |
 
 <Aside type="note">
-The `-S cli=y` flag enables stdio support for logging.
+  The `-S cli=y` flag enables stdio support for logging.
 </Aside>
 
 ## Security Boundaries
@@ -249,6 +251,7 @@ flowchart LR
 ```
 
 The WASM sandbox provides:
+
 - **Memory isolation:** No access to host memory
 - **Capability-based security:** Only granted WASI interfaces
 - **No filesystem access:** By default (unless granted)

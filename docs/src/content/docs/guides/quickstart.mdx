@@ -3,7 +3,13 @@ title: Quick Start
 description: Build your first WASI HTTP handler with mik-sdk
 ---
 
-import { Steps, Code, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import {
+  Steps,
+  Code,
+  Aside,
+  Tabs,
+  TabItem,
+} from "@astrojs/starlight/components";
 
 Build a complete HTTP handler in minutes. This guide covers the essential patterns you'll use in every mik-sdk project.
 
@@ -41,7 +47,23 @@ Build a complete HTTP handler in minutes. This guide covers the essential patter
 
 3. **Add WIT files**
 
-   Copy the `wit/` directory from `examples/hello-world/` in the mik-sdk repository.
+   Download the WIT interface:
+
+   ```bash
+   mkdir -p wit/deps/core
+   curl -L https://github.com/dufeut/mik-sdk/releases/latest/download/core.wit \
+     -o wit/deps/core/core.wit
+   ```
+
+   Create `wit/world.wit`:
+
+   ```wit
+   package hello:handler;
+
+   world handler {
+       include mik:core/handler-world;
+   }
+   ```
 
 4. **Write your handler**
 
@@ -91,9 +113,13 @@ Build a complete HTTP handler in minutes. This guide covers the essential patter
    cargo component build --release
    ```
 
-6. **Compose with the bridge**
+6. **Get the bridge and compose**
 
    ```bash
+   # Download the bridge (if you don't have it)
+   curl -LO https://github.com/dufeut/mik-sdk/releases/latest/download/mik-bridge.wasm
+
+   # Compose handler with bridge
    wac plug mik-bridge.wasm \
        --plug target/wasm32-wasip2/release/hello_handler.wasm \
        -o service.wasm
@@ -139,11 +165,11 @@ pub struct HelloResponse {
 }
 ```
 
-| Macro | Purpose |
-|-------|---------|
-| `#[derive(Type)]` | JSON request/response body |
-| `#[derive(Path)]` | URL path parameters |
-| `#[derive(Query)]` | Query string parameters |
+| Macro              | Purpose                    |
+| ------------------ | -------------------------- |
+| `#[derive(Type)]`  | JSON request/response body |
+| `#[derive(Path)]`  | URL path parameters        |
+| `#[derive(Query)]` | Query string parameters    |
 
 ### Routes Definition
 
@@ -155,6 +181,7 @@ routes! {
 ```
 
 The `routes!` macro:
+
 - Maps HTTP methods and paths to handler functions
 - Extracts typed inputs (path, query, body)
 - Generates the `Guest` implementation
@@ -169,6 +196,7 @@ fn hello(path: HelloPath, _req: &Request) -> Response {
 ```
 
 Handlers receive:
+
 - Typed inputs (path, query, body) - already parsed and validated
 - The raw `&Request` for accessing headers, raw body, etc.
 

@@ -67,6 +67,12 @@ Requires Rust 1.85+ with `wasm32-wasip2` target and [cargo-component](https://gi
 ## Build & Run
 
 ```bash
+# Get the bridge and WIT interface
+curl -LO https://github.com/dufeut/mik-sdk/releases/latest/download/mik-bridge.wasm
+mkdir -p wit/deps/core
+curl -L https://github.com/dufeut/mik-sdk/releases/latest/download/core.wit \
+  -o wit/deps/core/core.wit
+
 # Build your handler
 cargo component build --release
 
@@ -75,9 +81,13 @@ wac plug mik-bridge.wasm --plug target/wasm32-wasip2/release/my_handler.wasm -o 
 
 # Run on wasmtime
 wasmtime serve -S cli=y service.wasm
+```
 
-# Or run on Spin
-spin up --from service.wasm
+**OCI Registry** (alternative):
+
+```bash
+oras pull ghcr.io/dufeut/mik-sdk-bridge:latest    # mik_bridge.wasm
+oras pull ghcr.io/dufeut/mik-sdk-wit:latest       # core.wit
 ```
 
 ## Features
@@ -98,9 +108,11 @@ spin up --from service.wasm
 - `random::uuid()`, `random::hex()` via WASI random
 - Structured logging with `log!`
 
-**Optional Features**
+**Included by Default**
 - `http-client` — Outbound HTTP with `fetch!` macro and SSRF protection
 - `sql` — Query builder with Mongo-style filters and cursor pagination
+
+Use `default-features = false` for a minimal build.
 
 ## Examples
 

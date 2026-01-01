@@ -3,7 +3,7 @@ title: Common Patterns
 description: Reusable patterns for mik-sdk handlers
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 A collection of patterns for common tasks in mik-sdk handlers.
 
@@ -35,7 +35,7 @@ fn fetch_external_data(api_key: &str) -> Response {
 
     match response {
         Ok(resp) if resp.is_success() => {
-            ok!({ "data": json::try_parse(&resp.body()) })
+            ok!({ "data": resp.json() })
         }
         Ok(resp) => {
             error! {
@@ -66,7 +66,7 @@ fn call_with_fallback(primary_url: &str, fallback: &str) -> Response {
 
     if let Ok(resp) = primary {
         if resp.is_success() {
-            return ok!({ "source": "primary", "data": json::try_parse(&resp.body()) });
+            return ok!({ "source": "primary", "data": resp.json() });
         }
     }
 
@@ -77,7 +77,7 @@ fn call_with_fallback(primary_url: &str, fallback: &str) -> Response {
 
     match fallback {
         Ok(resp) if resp.is_success() => {
-            ok!({ "source": "fallback", "data": json::try_parse(&resp.body()) })
+            ok!({ "source": "fallback", "data": resp.json() })
         }
         _ => {
             error! {
@@ -95,8 +95,8 @@ fn call_with_fallback(primary_url: &str, fallback: &str) -> Response {
 ### Map External Response
 
 ```rust
-fn transform_api_response(body: &[u8]) -> Option<Response> {
-    let parsed = json::try_parse(body)?;
+fn transform_api_response(resp: &http_client::Response) -> Option<Response> {
+    let parsed = resp.json()?;
 
     // Extract and transform fields
     let items = parsed.get("results");
@@ -123,12 +123,12 @@ fn aggregate_user_data(user_id: &str, req: &Request) -> Response {
         .send();
 
     let profile_data = match profile {
-        Ok(r) if r.is_success() => json::try_parse(&r.body()),
+        Ok(r) if r.is_success() => r.json(),
         _ => None,
     };
 
     let order_data = match orders {
-        Ok(r) if r.is_success() => json::try_parse(&r.body()),
+        Ok(r) if r.is_success() => r.json(),
         _ => None,
     };
 
@@ -152,7 +152,7 @@ fn get_with_cache(key: &str, fetch_fn: impl Fn() -> Option<String>) -> Response 
     if let Ok(resp) = cached {
         if resp.is_success() {
             log::debug!("Cache hit for {}", key);
-            return ok!({ "data": json::try_parse(&resp.body()), "cached": true });
+            return ok!({ "data": resp.json(), "cached": true });
         }
     }
 
@@ -191,13 +191,11 @@ fn validate_request(req: &Request) -> Result<UserContext, Response> {
 
     match auth_response {
         Ok(resp) if resp.is_success() => {
-            let body = resp.body();
-            let parsed = json::try_parse(&body)
-                .ok_or_else(|| error! {
-                    status: 500,
-                    title: "Internal Error",
-                    detail: "Failed to parse auth response"
-                })?;
+            let parsed = resp.json().ok_or_else(|| error! {
+                status: 500,
+                title: "Internal Error",
+                detail: "Failed to parse auth response"
+            })?;
 
             Ok(UserContext {
                 user_id: parsed.path_str(&["user_id"]).unwrap_or_default(),
@@ -239,8 +237,7 @@ fn protected_endpoint(req: &Request) -> Response {
 
 ```rust
 fn handler_inner(req: &Request) -> Result<Response, HandlerError> {
-    let body = req.body().ok_or(HandlerError::MissingBody)?;
-    let parsed = json::try_parse(body).ok_or(HandlerError::InvalidJson)?;
+    let parsed = req.json().ok_or(HandlerError::InvalidJson)?;
     let name = parsed.path_str(&["name"]).ok_or(HandlerError::MissingField("name"))?;
 
     Ok(ok!({ "name": name }))
@@ -266,7 +263,7 @@ fn check_rate_limit(client_id: &str) -> bool {
 
     match response {
         Ok(resp) => {
-            if let Some(parsed) = json::try_parse(&resp.body()) {
+            if let Some(parsed) = resp.json() {
                 parsed.path_bool(&["allowed"]).unwrap_or(false)
             } else {
                 true  // Allow on parse error

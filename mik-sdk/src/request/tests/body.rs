@@ -382,6 +382,54 @@ fn test_json_with_parser_returns_none() {
 }
 
 #[test]
+fn test_json_success() {
+    // Test the json() convenience method
+    let req = Request::new(
+        Method::Post,
+        "/api/users".to_string(),
+        vec![],
+        Some(br#"{"name":"Bob","active":true}"#.to_vec()),
+        HashMap::new(),
+    );
+
+    let json = req.json().expect("should parse JSON");
+    assert_eq!(json.path_str(&["name"]), Some("Bob".to_string()));
+    assert_eq!(json.path_bool(&["active"]), Some(true));
+}
+
+#[test]
+fn test_json_no_body() {
+    let req = Request::new(
+        Method::Get,
+        "/api/users".to_string(),
+        vec![],
+        None,
+        HashMap::new(),
+    );
+
+    assert!(
+        req.json().is_none(),
+        "json() should return None when no body"
+    );
+}
+
+#[test]
+fn test_json_invalid() {
+    let req = Request::new(
+        Method::Post,
+        "/api/users".to_string(),
+        vec![],
+        Some(b"not valid json".to_vec()),
+        HashMap::new(),
+    );
+
+    assert!(
+        req.json().is_none(),
+        "json() should return None for invalid JSON"
+    );
+}
+
+#[test]
 fn test_body_exactly_at_common_limits() {
     // Test bodies at exact power-of-2 boundaries
     for size in [1024, 4096, 8192, 16384, 32768, 65536] {

@@ -1,5 +1,6 @@
 //! HTTP response from outbound requests.
 
+use crate::json::{self, JsonValue};
 use std::collections::HashMap;
 
 /// HTTP response from an outbound request.
@@ -127,5 +128,47 @@ impl Response {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Parse response body as JSON using the provided parser.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(T)` - Body successfully parsed by the provided function
+    /// - `None` - Body is empty, or parser returned `None`
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let data = resp.json_with(custom_parser)?;
+    /// ```
+    #[must_use]
+    pub fn json_with<T>(&self, parse: impl FnOnce(&[u8]) -> Option<T>) -> Option<T> {
+        if self.body.is_empty() {
+            None
+        } else {
+            parse(&self.body)
+        }
+    }
+
+    /// Parse response body as JSON.
+    ///
+    /// Uses the built-in JSON parser. For custom parsers, use [`json_with`](Self::json_with).
+    ///
+    /// # Returns
+    ///
+    /// - `Some(JsonValue)` - Body successfully parsed as JSON
+    /// - `None` - Body is empty, or body is not valid JSON
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let resp = fetch!(GET "https://api.example.com/user").send()?;
+    /// let data = resp.json()?;
+    /// let name = data.path_str(&["name"]).unwrap_or("unknown");
+    /// ```
+    #[must_use]
+    pub fn json(&self) -> Option<JsonValue> {
+        self.json_with(json::try_parse)
     }
 }

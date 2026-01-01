@@ -97,6 +97,7 @@ fn home(_req: &Request) -> Response {
 
 fn hello(path: HelloPath, _req: &Request) -> Response {
     // path.name is extracted from {name} in the route
+    log!(info, "hello called", name: &path.name);
     let greeting = format!("Hello, {}!", path.name);
     ok!({
         "greeting": greeting,

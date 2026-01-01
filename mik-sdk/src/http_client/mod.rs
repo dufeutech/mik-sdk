@@ -214,6 +214,34 @@ mod tests {
     }
 
     #[test]
+    fn test_response_json() {
+        let response = Response::new(200, vec![], br#"{"name":"Alice","age":30}"#.to_vec());
+        let json = response.json().expect("should parse JSON");
+        assert_eq!(json.path_str(&["name"]), Some("Alice".to_string()));
+        assert_eq!(json.path_int(&["age"]), Some(30));
+    }
+
+    #[test]
+    fn test_response_json_empty_body() {
+        let response = Response::new(200, vec![], vec![]);
+        assert!(response.json().is_none());
+    }
+
+    #[test]
+    fn test_response_json_invalid() {
+        let response = Response::new(200, vec![], b"not json".to_vec());
+        assert!(response.json().is_none());
+    }
+
+    #[test]
+    fn test_response_json_with() {
+        let response = Response::new(200, vec![], br#"{"count":42}"#.to_vec());
+        let count = response
+            .json_with(|bytes| crate::json::try_parse(bytes).and_then(|j| j.path_int(&["count"])));
+        assert_eq!(count, Some(42));
+    }
+
+    #[test]
     fn test_request_builder() {
         let req = get("https://api.example.com/users")
             .header("Authorization", "Bearer token")

@@ -3,7 +3,7 @@ title: Sidecar Services
 description: Working with databases, caches, and external services
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk handlers are designed to work with external services for data storage, caching, and other infrastructure concerns. This guide covers patterns for integrating with these services.
 
@@ -107,21 +107,21 @@ sql_read!(users {
 });
 ```
 
-| Operator | SQL | Example |
-|----------|-----|---------|
-| `$eq` | `=` | `{ age: { $eq: 18 } }` |
-| `$ne` | `!=` | `{ status: { $ne: "banned" } }` |
-| `$gt` | `>` | `{ score: { $gt: 100 } }` |
-| `$gte` | `>=` | `{ age: { $gte: 18 } }` |
-| `$lt` | `<` | `{ score: { $lt: 50 } }` |
-| `$lte` | `<=` | `{ age: { $lte: 65 } }` |
-| `$in` | `IN` | `{ id: { $in: [1, 2, 3] } }` |
-| `$nin` | `NOT IN` | `{ id: { $nin: [1, 2, 3] } }` |
-| `$like` | `LIKE` | `{ name: { $like: "%alice%" } }` |
-| `$starts_with` | `LIKE 'x%'` | `{ name: { $starts_with: "A" } }` |
-| `$ends_with` | `LIKE '%x'` | `{ email: { $ends_with: ".com" } }` |
-| `$contains` | `LIKE '%x%'` | `{ bio: { $contains: "rust" } }` |
-| `$between` | `BETWEEN` | `{ age: { $between: [18, 65] } }` |
+| Operator       | SQL          | Example                             |
+| -------------- | ------------ | ----------------------------------- |
+| `$eq`          | `=`          | `{ age: { $eq: 18 } }`              |
+| `$ne`          | `!=`         | `{ status: { $ne: "banned" } }`     |
+| `$gt`          | `>`          | `{ score: { $gt: 100 } }`           |
+| `$gte`         | `>=`         | `{ age: { $gte: 18 } }`             |
+| `$lt`          | `<`          | `{ score: { $lt: 50 } }`            |
+| `$lte`         | `<=`         | `{ age: { $lte: 65 } }`             |
+| `$in`          | `IN`         | `{ id: { $in: [1, 2, 3] } }`        |
+| `$nin`         | `NOT IN`     | `{ id: { $nin: [1, 2, 3] } }`       |
+| `$like`        | `LIKE`       | `{ name: { $like: "%alice%" } }`    |
+| `$starts_with` | `LIKE 'x%'`  | `{ name: { $starts_with: "A" } }`   |
+| `$ends_with`   | `LIKE '%x'`  | `{ email: { $ends_with: ".com" } }` |
+| `$contains`    | `LIKE '%x%'` | `{ bio: { $contains: "rust" } }`    |
+| `$between`     | `BETWEEN`    | `{ age: { $between: [18, 65] } }`   |
 
 ### Ordering
 
@@ -209,12 +209,7 @@ let (sql, params) = sql_read!(sqlite, users {
 
 ## HTTP Client for Services
 
-Enable the `http-client` feature to call external services:
-
-```toml
-[dependencies]
-mik-sdk = { version = "0.1", features = ["http-client"] }
-```
+The HTTP client is included by default. Use `fetch!` to call external services.
 
 ### Calling a Database Proxy
 
@@ -234,9 +229,7 @@ fn list_users(_req: &Request) -> Response {
     }).send()?;
 
     if response.is_success() {
-        let body = response.body();
-        // Parse and return results
-        ok!({ "data": json::try_parse(&body) })
+        ok!({ "data": response.json() })
     } else {
         error! {
             status: 500,
@@ -261,7 +254,7 @@ fn get_user(path: Id, _req: &Request) -> Response {
     if let Some(resp) = cache_response {
         if resp.is_success() {
             // Return cached data
-            return ok!({ "data": json::try_parse(&resp.body()), "cached": true });
+            return ok!({ "data": resp.json(), "cached": true });
         }
     }
 
@@ -272,10 +265,10 @@ fn get_user(path: Id, _req: &Request) -> Response {
     if db_response.is_success() {
         // Store in cache (fire and forget)
         let _ = fetch!(PUT format!("http://cache:8080/users/{}", user_id),
-            body: db_response.body()
+            body: db_response.bytes()
         ).send();
 
-        ok!({ "data": json::try_parse(&db_response.body()), "cached": false })
+        ok!({ "data": db_response.json(), "cached": false })
     } else {
         not_found!("User not found")
     }
@@ -309,7 +302,9 @@ fn list_posts_with_authors(_req: &Request) -> Response {
 ```
 
 <Aside type="caution" title="Query Policy">
-**One query per table per request** - Generate at most one query per table. Use batched `WHERE id IN (...)` for related data. Never execute per-row queries.
+  **One query per table per request** - Generate at most one query per table.
+  Use batched `WHERE id IN (...)` for related data. Never execute per-row
+  queries.
 </Aside>
 
 ## Next Steps

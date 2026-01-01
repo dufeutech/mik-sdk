@@ -3,7 +3,7 @@ title: Installation
 description: Set up your development environment for mik-sdk
 ---
 
-import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+import { Steps, Tabs, TabItem, Aside } from "@astrojs/starlight/components";
 
 This guide walks you through setting up your development environment to build WASI HTTP handlers with mik-sdk.
 
@@ -74,7 +74,39 @@ package = "my:handler"
 
 ## WIT Dependencies
 
-Copy the WIT interface definitions to your project:
+Your handler needs the mik:core WIT interface. You can get it from the OCI registry or GitHub releases:
+
+<Tabs>
+<TabItem label="OCI Registry">
+
+```bash
+# Install oras if you don't have it
+cargo install oras
+
+# Download the WIT file
+mkdir -p wit/deps/core
+oras pull ghcr.io/dufeut/mik-sdk-wit:latest -o wit/deps/core
+```
+
+</TabItem>
+<TabItem label="GitHub Release">
+
+```bash
+# Download from the latest release
+mkdir -p wit/deps/core
+curl -L https://github.com/dufeut/mik-sdk/releases/latest/download/core.wit \
+  -o wit/deps/core/core.wit
+```
+
+</TabItem>
+<TabItem label="Manual">
+
+Copy the `wit/` directory from `examples/hello-world/` in the [mik-sdk repository](https://github.com/dufeut/mik-sdk).
+
+</TabItem>
+</Tabs>
+
+Your project structure should look like:
 
 ```
 my-handler/
@@ -98,30 +130,50 @@ world handler {
 }
 ```
 
-<Aside type="tip">
-You can copy the `wit/` directory from the `examples/hello-world/` folder in the mik-sdk repository.
-</Aside>
-
 ## Feature Flags
 
 mik-sdk provides optional features:
 
 ```toml
 [dependencies]
-# Default (includes SQL macros)
+# Default (includes SQL macros + HTTP client)
 mik-sdk = "0.1"
 
-# With HTTP client for outbound requests
-mik-sdk = { version = "0.1", features = ["http-client"] }
-
-# Without SQL (smaller binary)
+# Minimal (no SQL, no HTTP client)
 mik-sdk = { version = "0.1", default-features = false }
+
+# Only SQL (no HTTP client)
+mik-sdk = { version = "0.1", default-features = false, features = ["sql"] }
 ```
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `sql` | Yes | SQL query builder macros |
-| `http-client` | No | Outbound HTTP requests |
+| Feature       | Default | Description              |
+| ------------- | ------- | ------------------------ |
+| `sql`         | Yes     | SQL query builder macros |
+| `http-client` | Yes     | Outbound HTTP requests   |
+
+## Bridge Component
+
+To compose your handler into a runnable service, you need the mik-bridge component:
+
+<Tabs>
+<TabItem label="OCI Registry">
+
+```bash
+# Download the bridge component
+oras pull ghcr.io/dufeut/mik-sdk-bridge:latest -o .
+# Result: mik_bridge.wasm
+```
+
+</TabItem>
+<TabItem label="GitHub Release">
+
+```bash
+# Download from the latest release
+curl -LO https://github.com/dufeut/mik-sdk/releases/latest/download/mik-bridge.wasm
+```
+
+</TabItem>
+</Tabs>
 
 ## Verify Installation
 
@@ -151,6 +203,7 @@ cargo component build --release
 ```
 
 If successful, you'll find your component at:
+
 ```
 target/wasm32-wasip2/release/my_handler.wasm
 ```

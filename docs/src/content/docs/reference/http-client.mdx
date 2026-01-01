@@ -3,7 +3,7 @@ title: HTTP Client
 description: Making outbound HTTP requests with the fetch! macro
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk provides an HTTP client for making outbound requests to external services. Enable it with the `http-client` feature.
 
@@ -17,16 +17,7 @@ use bindings::exports::mik::core::handler::{self, Guest, Response};
 use mik_sdk::prelude::*;
 ```
 
-The `fetch!` macro is included in `mik_sdk::prelude::*` when the `http-client` feature is enabled.
-
-## Setup
-
-Add the feature to your `Cargo.toml`:
-
-```toml
-[dependencies]
-mik-sdk = { version = "0.1", features = ["http-client"] }
-```
+The `fetch!` macro is included in `mik_sdk::prelude::*` by default.
 
 ## Basic Requests
 
@@ -38,7 +29,7 @@ fn fetch_data(_req: &Request) -> Response {
         .send()?;
 
     if response.is_success() {
-        ok!({ "data": json::try_parse(&response.body()) })
+        ok!({ "data": response.json() })
     } else {
         error! {
             status: 502,
@@ -149,10 +140,10 @@ if response.is_success() {
 }
 
 // Body as bytes
-let body = response.body();  // Vec<u8>
+let body = response.bytes();  // &[u8]
 
 // Parse JSON
-if let Some(json) = json::try_parse(&body) {
+if let Some(json) = response.json() {
     let value = json.path_str(&["field"]);
 }
 
@@ -167,7 +158,7 @@ fn call_api(_req: &Request) -> Response {
     match fetch!(GET "https://api.example.com/data").send() {
         Ok(response) => {
             if response.is_success() {
-                ok!({ "data": json::try_parse(&response.body()) })
+                ok!({ "data": response.json() })
             } else {
                 error! {
                     status: response.status(),
@@ -205,6 +196,7 @@ fn fetch_url(body: UrlInput, _req: &Request) -> Response {
 ```
 
 Blocked addresses include:
+
 - `127.0.0.0/8` (loopback)
 - `10.0.0.0/8` (private)
 - `172.16.0.0/12` (private)
@@ -214,7 +206,8 @@ Blocked addresses include:
 - Private IPv6 ranges
 
 <Aside type="caution">
-Only use `.deny_private_ips()` for user-provided URLs. For known internal service URLs, omit this to allow internal communication.
+  Only use `.deny_private_ips()` for user-provided URLs. For known internal
+  service URLs, omit this to allow internal communication.
 </Aside>
 
 ### Trace ID Propagation
@@ -243,7 +236,7 @@ fn get_user(path: Id, _req: &Request) -> Response {
 
     let response = fetch!(GET &url).send()?;
 
-    ok!({ "data": json::try_parse(&response.body()) })
+    ok!({ "data": response.json() })
 }
 ```
 
@@ -302,26 +295,26 @@ fn create_order(body: OrderInput, req: &Request) -> Response {
 
 ### fetch! Macro Options
 
-| Option | Description |
-|--------|-------------|
-| `headers: { ... }` | HTTP headers |
-| `json: { ... }` | JSON body (sets Content-Type) |
-| `body: bytes` | Raw body bytes |
-| `timeout: ms` | Timeout in milliseconds |
+| Option             | Description                   |
+| ------------------ | ----------------------------- |
+| `headers: { ... }` | HTTP headers                  |
+| `json: { ... }`    | JSON body (sets Content-Type) |
+| `body: bytes`      | Raw body bytes                |
+| `timeout: ms`      | Timeout in milliseconds       |
 
 ### Builder Methods
 
-| Method | Description |
-|--------|-------------|
-| `.send()` | Execute the request |
+| Method                | Description            |
+| --------------------- | ---------------------- |
+| `.send()`             | Execute the request    |
 | `.deny_private_ips()` | Enable SSRF protection |
-| `.with_trace_id(opt)` | Add trace ID header |
+| `.with_trace_id(opt)` | Add trace ID header    |
 
 ### Response Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `status()` | `u16` | HTTP status code |
-| `is_success()` | `bool` | True if 2xx |
-| `body()` | `Vec<u8>` | Response body |
-| `header(name)` | `Option<&str>` | Response header |
+| Method         | Returns        | Description      |
+| -------------- | -------------- | ---------------- |
+| `status()`     | `u16`          | HTTP status code |
+| `is_success()` | `bool`         | True if 2xx      |
+| `body()`       | `Vec<u8>`      | Response body    |
+| `header(name)` | `Option<&str>` | Response header  |

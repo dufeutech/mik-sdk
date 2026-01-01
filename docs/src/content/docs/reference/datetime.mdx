@@ -3,7 +3,7 @@ title: Date & Time
 description: Time utilities for timestamps and ISO 8601 formatting
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 The `time` module provides utilities for working with timestamps and date formatting.
 
@@ -23,10 +23,10 @@ The `time` module is included in `mik_sdk::prelude::*`.
 
 The time module automatically uses the appropriate implementation:
 
-| Platform | Implementation |
-|----------|----------------|
+| Platform             | Implementation                  |
+| -------------------- | ------------------------------- |
 | WASM (wasm32-wasip2) | Native `wasi:clocks/wall-clock` |
-| Native (testing) | `std::time::SystemTime` |
+| Native (testing)     | `std::time::SystemTime`         |
 
 No configuration needed - just import and use.
 
@@ -170,30 +170,33 @@ YYYY-MM-DDTHH:MM:SS.sssZ       // With milliseconds
 ```
 
 Examples:
+
 - `2025-01-16T10:50:00Z`
 - `2025-01-16T10:50:00.500Z`
 - `2024-02-29T12:00:00Z` (leap year)
 
 <Aside type="note">
-Timestamps are always in UTC (indicated by the `Z` suffix). No timezone conversion is performed.
+  Timestamps are always in UTC (indicated by the `Z` suffix). No timezone
+  conversion is performed.
 </Aside>
 
 ## Algorithm
 
 ISO 8601 formatting uses Howard Hinnant's date algorithm, which is:
+
 - Well-tested and widely used
 - Handles leap years correctly
 - Efficient for embedded use
 
 ## API Summary
 
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `time::now()` | `u64` | Unix timestamp in seconds |
-| `time::now_millis()` | `u64` | Unix timestamp in milliseconds |
-| `time::now_iso()` | `String` | Current time as ISO 8601 |
-| `time::to_millis(secs, nanos)` | `u64` | Convert to milliseconds |
-| `time::to_iso(secs, nanos)` | `String` | Convert to ISO 8601 |
+| Function                       | Returns  | Description                    |
+| ------------------------------ | -------- | ------------------------------ |
+| `time::now()`                  | `u64`    | Unix timestamp in seconds      |
+| `time::now_millis()`           | `u64`    | Unix timestamp in milliseconds |
+| `time::now_iso()`              | `String` | Current time as ISO 8601       |
+| `time::to_millis(secs, nanos)` | `u64`    | Convert to milliseconds        |
+| `time::to_iso(secs, nanos)`    | `String` | Convert to ISO 8601            |
 
 ## Examples
 

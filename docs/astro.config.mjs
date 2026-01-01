@@ -5,6 +5,8 @@ import rehypeMermaid from "rehype-mermaid";
 
 // https://astro.build/config
 export default defineConfig({
+  site: "https://dufeut.github.io",
+  base: "/mik-sdk",
   markdown: {
     rehypePlugins: [
       [
@@ -29,7 +31,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/hlop3z/mik-sdk",
+          href: "https://github.com/dufeut/mik-sdk",
         },
       ],
       logo: {
@@ -84,7 +86,7 @@ export default defineConfig({
       ],
       pagefind: true,
       editLink: {
-        baseUrl: "https://github.com/hlop3z/mik-sdk/edit/main/docs/",
+        baseUrl: "https://github.com/dufeut/mik-sdk/edit/main/docs/",
       },
       lastUpdated: true,
     }),

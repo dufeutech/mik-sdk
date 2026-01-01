@@ -3,7 +3,7 @@ title: Request
 description: HTTP request handling and data extraction
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 The `Request` struct provides access to all HTTP request data including path parameters, query strings, headers, and body.
 
@@ -57,7 +57,8 @@ fn get_user(req: &Request) -> Response {
 ```
 
 <Aside type="tip">
-For type-safe path parameters, use `#[derive(Path)]` in your route definitions.
+  For type-safe path parameters, use `#[derive(Path)]` in your route
+  definitions.
 </Aside>
 
 ## Query Parameters
@@ -116,8 +117,8 @@ fn create_user(req: &Request) -> Response {
     // As UTF-8 text
     let text = req.text();   // Option<&str>
 
-    // Parse with custom function
-    let json = req.json_with(json::try_parse);  // Option<JsonValue>
+    // Parse as JSON
+    let json = req.json();   // Option<JsonValue>
 
     if let Some(parsed) = json {
         let name = parsed.path_str(&["name"]);
@@ -134,7 +135,7 @@ fn create_user(req: &Request) -> Response {
 fn handler(req: &Request) -> Response {
     if req.is_json() {
         // Handle JSON
-        let body = req.json_with(json::try_parse);
+        let body = req.json();
     } else if req.is_form() {
         // Handle form data
         let name = req.form("name");
@@ -214,11 +215,7 @@ fn create_item(req: &Request) -> Response {
     guard!(req.is_json(), 415, "Content-Type must be application/json");
 
     // Parse body
-    let body = ensure!(
-        req.json_with(json::try_parse),
-        400,
-        "Invalid JSON"
-    );
+    let body = ensure!(req.json(), 400, "Invalid JSON");
 
     // Extract fields
     let name = ensure!(
@@ -245,26 +242,27 @@ fn create_item(req: &Request) -> Response {
 
 ## API Summary
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `method()` | `Method` | HTTP method |
-| `path()` | `&str` | Full path with query |
-| `path_without_query()` | `&str` | Path only |
-| `param(name)` | `Option<&str>` | Path parameter |
-| `query(name)` | `Option<&str>` | First query param value |
-| `query_all(name)` | `&[String]` | All query param values |
-| `header(name)` | `Option<&str>` | Header (case-insensitive) |
-| `header_all(name)` | `Vec<&str>` | All header values |
-| `headers()` | `&[(String, String)]` | All headers |
-| `trace_id()` | `Option<&str>` | x-trace-id header |
-| `body()` | `Option<&[u8]>` | Raw body bytes |
-| `text()` | `Option<&str>` | Body as UTF-8 |
-| `json_with(f)` | `Option<T>` | Parse body with function |
-| `has_body()` | `bool` | True if body is non-empty |
-| `content_type()` | `Option<&str>` | Content-Type header |
-| `is_json()` | `bool` | Content-Type is JSON |
-| `is_html()` | `bool` | Content-Type is HTML |
-| `is_form()` | `bool` | Content-Type is form |
-| `accepts(mime)` | `bool` | Accept header contains |
-| `form(name)` | `Option<&str>` | Form field value |
-| `form_all(name)` | `&[String]` | All form field values |
+| Method                 | Returns               | Description                   |
+| ---------------------- | --------------------- | ----------------------------- |
+| `method()`             | `Method`              | HTTP method                   |
+| `path()`               | `&str`                | Full path with query          |
+| `path_without_query()` | `&str`                | Path only                     |
+| `param(name)`          | `Option<&str>`        | Path parameter                |
+| `query(name)`          | `Option<&str>`        | First query param value       |
+| `query_all(name)`      | `&[String]`           | All query param values        |
+| `header(name)`         | `Option<&str>`        | Header (case-insensitive)     |
+| `header_all(name)`     | `Vec<&str>`           | All header values             |
+| `headers()`            | `&[(String, String)]` | All headers                   |
+| `trace_id()`           | `Option<&str>`        | x-trace-id header             |
+| `body()`               | `Option<&[u8]>`       | Raw body bytes                |
+| `text()`               | `Option<&str>`        | Body as UTF-8                 |
+| `json()`               | `Option<JsonValue>`   | Parse body as JSON            |
+| `json_with(f)`         | `Option<T>`           | Parse body with custom parser |
+| `has_body()`           | `bool`                | True if body is non-empty     |
+| `content_type()`       | `Option<&str>`        | Content-Type header           |
+| `is_json()`            | `bool`                | Content-Type is JSON          |
+| `is_html()`            | `bool`                | Content-Type is HTML          |
+| `is_form()`            | `bool`                | Content-Type is form          |
+| `accepts(mime)`        | `bool`                | Accept header contains        |
+| `form(name)`           | `Option<&str>`        | Form field value              |
+| `form_all(name)`       | `&[String]`           | All form field values         |

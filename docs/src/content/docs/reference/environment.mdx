@@ -3,7 +3,7 @@ title: Environment
 description: Environment variable access
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from "@astrojs/starlight/components";
 
 The `env` module provides simple access to environment variables.
 
@@ -47,7 +47,8 @@ let secret = env::require("API_SECRET");  // String, panics if missing
 ```
 
 <Aside type="caution">
-`require()` will panic if the variable is not set. Use it only for variables that are absolutely required for your handler to function.
+  `require()` will panic if the variable is not set. Use it only for variables
+  that are absolutely required for your handler to function.
 </Aside>
 
 ## Common Patterns
@@ -128,11 +129,11 @@ fn handler(_req: &Request) -> Response {
 
 ## API Summary
 
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `env::get(key)` | `Option<String>` | Get variable, None if not set |
-| `env::get_or(key, default)` | `String` | Get variable or use default |
-| `env::require(key)` | `String` | Get variable, panic if not set |
+| Function                    | Returns          | Description                    |
+| --------------------------- | ---------------- | ------------------------------ |
+| `env::get(key)`             | `Option<String>` | Get variable, None if not set  |
+| `env::get_or(key, default)` | `String`         | Get variable or use default    |
+| `env::require(key)`         | `String`         | Get variable, panic if not set |
 
 ## Examples
 
@@ -160,7 +161,8 @@ let debug: bool = env::get_or("DEBUG", "false") == "true";
 ## Runtime Considerations
 
 <Aside type="note">
-Environment variables are read at runtime. In WASI environments, the runtime must provide access to environment variables for these functions to work.
+  Environment variables are read at runtime. In WASI environments, the runtime
+  must provide access to environment variables for these functions to work.
 </Aside>
 
 When running with wasmtime:

@@ -3,7 +3,7 @@ title: Logging
 description: Structured JSON logging to stderr
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
 
 mik-sdk provides structured JSON logging to stderr, compatible with major log aggregation systems.
 
@@ -24,10 +24,16 @@ The `log` module and macros are included in `mik_sdk::prelude::*`.
 All logs are JSON objects written to stderr:
 
 ```json
-{"level":"info","msg":"user created","id":"123","ts":"2025-01-16T10:30:00.500Z"}
+{
+  "level": "info",
+  "msg": "user created",
+  "id": "123",
+  "ts": "2025-01-16T10:30:00.500Z"
+}
 ```
 
 Fields:
+
 - `level` - Log level (debug, info, warn, error)
 - `msg` - Log message
 - `ts` - ISO 8601 timestamp
@@ -54,6 +60,7 @@ log::debug!("Cache size: {} entries", cache.len());
 ```
 
 Output:
+
 ```json
 {"timestamp":"2025-01-16T10:30:00.500Z","level":"info","message":"Server started on port 8080"}
 {"timestamp":"2025-01-16T10:30:00.501Z","level":"warn","message":"Cache miss for key: user:123"}
@@ -73,6 +80,7 @@ log!(debug, "request parsed", method: req.method(), path: req.path());
 ```
 
 Output:
+
 ```json
 {"level":"info","msg":"user created","id":"123","email":"alice@example.com","ts":"2025-01-16T10:30:00.500Z"}
 {"level":"warn","msg":"rate limit approaching","remaining":"5","ts":"2025-01-16T10:30:01.000Z"}
@@ -81,12 +89,12 @@ Output:
 
 ## Log Levels
 
-| Level | Macro | Use Case |
-|-------|-------|----------|
+| Level | Macro           | Use Case                                   |
+| ----- | --------------- | ------------------------------------------ |
 | debug | `log::debug!()` | Development info (compiled out in release) |
-| info | `log::info!()` | Normal operations |
-| warn | `log::warn!()` | Unexpected but handled situations |
-| error | `log::error!()` | Errors requiring attention |
+| info  | `log::info!()`  | Normal operations                          |
+| warn  | `log::warn!()`  | Unexpected but handled situations          |
+| error | `log::error!()` | Errors requiring attention                 |
 
 ## Debug Logging
 
@@ -101,7 +109,8 @@ log::debug!("Detailed debugging info: {:?}", data);
 ```
 
 <Aside type="note">
-The structured `log!(debug, ...)` is NOT compiled out in release builds. Use `log::debug!()` for debug-only logs.
+  The structured `log!(debug, ...)` is NOT compiled out in release builds. Use
+  `log::debug!()` for debug-only logs.
 </Aside>
 
 ## Common Patterns
@@ -203,23 +212,23 @@ fn handler(req: &Request) -> Response {
 
 The JSON format is compatible with major log aggregation systems:
 
-| System | Notes |
-|--------|-------|
-| ELK Stack | Auto-parses JSON, maps fields |
-| Datadog | Auto-detects JSON, extracts standard fields |
-| CloudWatch Logs Insights | Query with parsed JSON fields |
-| Splunk | Auto-extracts JSON fields |
-| Grafana Loki | Label extraction from JSON |
+| System                   | Notes                                       |
+| ------------------------ | ------------------------------------------- |
+| ELK Stack                | Auto-parses JSON, maps fields               |
+| Datadog                  | Auto-detects JSON, extracts standard fields |
+| CloudWatch Logs Insights | Query with parsed JSON fields               |
+| Splunk                   | Auto-extracts JSON fields                   |
+| Grafana Loki             | Label extraction from JSON                  |
 
 ## API Summary
 
 ### Format-String Macros
 
-| Macro | Level | Release Build |
-|-------|-------|---------------|
-| `log::info!(fmt, ...)` | info | Included |
-| `log::warn!(fmt, ...)` | warn | Included |
-| `log::error!(fmt, ...)` | error | Included |
+| Macro                   | Level | Release Build    |
+| ----------------------- | ----- | ---------------- |
+| `log::info!(fmt, ...)`  | info  | Included         |
+| `log::warn!(fmt, ...)`  | warn  | Included         |
+| `log::error!(fmt, ...)` | error | Included         |
 | `log::debug!(fmt, ...)` | debug | **Compiled out** |
 
 ### Structured Macro
@@ -248,6 +257,7 @@ log!(error, "api failed", url: &url, status: 500);
 ```
 
 Output (stderr):
+
 ```json
 {"timestamp":"2025-01-16T10:30:00.500Z","level":"info","message":"Starting handler"}
 {"level":"info","msg":"user created","id":"123","email":"alice@example.com","ts":"2025-01-16T10:30:00.501Z"}
