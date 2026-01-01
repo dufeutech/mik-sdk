@@ -121,7 +121,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: [wasmtime, spin, wasmcloud]
+        runtime: [wasmtime, spin]
+        # wasmcloud excluded - wash dev requires NATS and additional setup not available in CI
+        # Run locally with: WASI_RUNTIME=wasmcloud cargo test -- --ignored
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.89
@@ -157,16 +159,6 @@ jobs:
         uses: fermyon/actions/spin/setup@v1
         with:
           version: v3.0.0
-      - name: Cache wash-cli
-        if: matrix.runtime == 'wasmcloud'
-        id: cache-wash
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/bin/wash
-          key: wash-cli-0.39.0
-      - name: Install wash-cli
-        if: matrix.runtime == 'wasmcloud' && steps.cache-wash.outputs.cache-hit != 'true'
-        run: cargo install wash-cli@0.39.0 --locked
       - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
         run: cd mik-bridge && cargo component build --release
