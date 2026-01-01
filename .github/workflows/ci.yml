@@ -121,8 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: [wasmtime, spin]
-        # wasmcloud excluded for now - wash dev has setup complexity
+        runtime: [wasmtime, spin, wasmcloud]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.89
@@ -158,17 +157,32 @@ jobs:
         uses: fermyon/actions/spin/setup@v1
         with:
           version: v3.0.0
+      - name: Cache wash-cli
+        if: matrix.runtime == 'wasmcloud'
+        id: cache-wash
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wash
+          key: wash-cli-0.36
+      - name: Install wash-cli
+        if: matrix.runtime == 'wasmcloud' && steps.cache-wash.outputs.cache-hit != 'true'
+        run: cargo install wash-cli@0.36 --locked
       - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
         run: cd mik-bridge && cargo component build --release
       - name: Build hello-world example
         run: cd examples/hello-world && cargo component build --release
+      - name: Build crud-api example
+        run: cd examples/crud-api && cargo component build --release
       - name: Compose components
         run: |
           mkdir -p tests-integration/fixtures
           wac plug mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm \
             --plug target/wasm32-wasip1/release/hello_world.wasm \
             -o tests-integration/fixtures/hello-world-service.wasm
+          wac plug mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm \
+            --plug target/wasm32-wasip1/release/crud_api.wasm \
+            -o tests-integration/fixtures/crud-api-service.wasm
       - name: Run E2E tests
         run: |
           cd tests-integration

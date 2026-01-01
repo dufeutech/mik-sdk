@@ -398,7 +398,11 @@ fn test_413_payload_too_large() {
                 assert!(
                     msg.contains("broken pipe")
                         || msg.contains("connection reset")
-                        || msg.contains("connection closed"),
+                        || msg.contains("connection closed")
+                        || msg.contains("connection was aborted")        // Windows
+                        || msg.contains("forcibly closed")               // Windows
+                        || msg.contains("os error 10053")                // Windows WSAECONNABORTED
+                        || msg.contains("os error 10054"),               // Windows WSAECONNRESET
                     "Expected connection closed/reset, got: {t}"
                 );
             }
@@ -536,4 +540,207 @@ fn test_wasmcloud_available() {
         .expect("Request failed");
     assert_eq!(response.status(), 200);
     eprintln!("wasmcloud: OK");
+}
+
+// =============================================================================
+// crud-api E2E Tests - Tests PUT, DELETE, error!, no_content!, path+body
+// =============================================================================
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_index() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        let response = ureq::get(&format!("{}/", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["name"], "CRUD API Example");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_get_user() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test GET /users/{id} with path parameter
+        let response = ureq::get(&format!("{}/users/1", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["id"], "1");
+        assert_eq!(json["name"], "Alice");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_get_user_not_found() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test 404 with error! macro
+        let response = ureq::get(&format!("{}/users/999", server.base_url())).call();
+
+        match response {
+            Ok(_) => panic!("Expected 404"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 404);
+                // Verify RFC 7807 Problem Details
+                if let Ok(json) = resp.into_json::<serde_json::Value>() {
+                    assert_eq!(json["status"], 404);
+                    assert_eq!(json["title"], "Not Found");
+                }
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_create_user_post() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test POST with JSON body
+        let response = ureq::post(&format!("{}/users", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "name": "Charlie",
+                "email": "charlie@example.com"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 201); // Created
+        assert!(response.header("location").is_some()); // Location header
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["name"], "Charlie");
+        assert_eq!(json["email"], "charlie@example.com");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_update_user_put() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test PUT with path + body
+        let response = ureq::put(&format!("{}/users/1", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "name": "Alice Updated"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["id"], "1");
+        assert!(json["updated_at"].is_string());
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_update_user_bad_request() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test 400 Bad Request - invalid ID format
+        let response = ureq::put(&format!("{}/users/not-a-number", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({ "name": "Test" }));
+
+        match response {
+            Ok(_) => panic!("Expected 400"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 400);
+                if let Ok(json) = resp.into_json::<serde_json::Value>() {
+                    assert_eq!(json["status"], 400);
+                    assert_eq!(json["title"], "Bad Request");
+                }
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_update_user_unprocessable() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test 422 Unprocessable Entity - no fields provided
+        let response = ureq::put(&format!("{}/users/1", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({}));
+
+        match response {
+            Ok(_) => panic!("Expected 422"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 422);
+                if let Ok(json) = resp.into_json::<serde_json::Value>() {
+                    assert_eq!(json["status"], 422);
+                }
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_delete_user() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test DELETE returns 204 No Content
+        let response = ureq::delete(&format!("{}/users/1", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 204);
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_delete_user_not_found() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test DELETE 404
+        let response = ureq::delete(&format!("{}/users/999", server.base_url())).call();
+
+        match response {
+            Ok(_) => panic!("Expected 404"),
+            Err(ureq::Error::Status(code, _)) => assert_eq!(code, 404),
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_list_users_with_pagination() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test query params with defaults
+        let response = ureq::get(&format!("{}/users?page=2&limit=25", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["page"], 2);
+        assert_eq!(json["limit"], 25);
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_list_posts_cursor_pagination() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test cursor pagination
+        let response = ureq::get(&format!("{}/posts", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert!(json["posts"].is_array());
+        assert!(json["has_next"].is_boolean());
+        assert!(json["next_cursor"].is_string() || json["next_cursor"].is_null());
+    });
 }
