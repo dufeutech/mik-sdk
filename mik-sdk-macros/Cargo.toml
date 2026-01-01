@@ -10,6 +10,13 @@ description = "Proc-macros for mik-sdk - routes!, ok!, error!, fetch!, derive ma
 [lib]
 proc-macro = true
 
+[features]
+default = []
+# Debug feature: print pretty-formatted macro expansions to stderr
+debug-expand = ["dep:prettyplease"]
+# Trace feature: print parsing/codegen steps to stderr
+macro-trace = []
+
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
@@ -17,6 +24,8 @@ syn = { version = "2.0", features = ["full", "parsing"] }
 # OpenAPI schema generation - compile-time only, zero runtime cost
 utoipa = "5"
 serde_json = "1.0"
+# Optional: pretty-print generated code (only with debug-expand feature)
+prettyplease = { version = "0.2", optional = true }
 
 [dev-dependencies]
 # Uses package rename to avoid release-please cargo-workspace cycle detection
@@ -25,6 +34,9 @@ serde_json = "1.0"
 mik_sdk = { path = "../mik-sdk", package = "mik-sdk" }
 trybuild = "1.0"
 macrotest = "1.0"
+# Snapshot testing for macro expansion verification
+insta = "1.40"
+prettyplease = "0.2"
 
 [lints]
 workspace = true

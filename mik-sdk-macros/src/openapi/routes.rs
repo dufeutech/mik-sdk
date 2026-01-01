@@ -4,8 +4,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::Ident;
 
-use super::field_schema::extract_param_names;
-use super::type_schema::{InputSource, RouteDef};
+use crate::schema::codegen::extract_param_names;
+use crate::schema::types::{InputSource, RouteDef};
 
 // =============================================================================
 // CODE GENERATION - OPENAPI
@@ -13,7 +13,7 @@ use super::type_schema::{InputSource, RouteDef};
 
 /// Generate runtime code to build an OpenAPI path entry for a route.
 ///
-/// Returns TokenStream2 that evaluates to a String containing the method entry JSON.
+/// Returns `TokenStream2` that evaluates to a String containing the method entry JSON.
 pub fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2 {
     let method_name = route.method.as_str();
     let path = route

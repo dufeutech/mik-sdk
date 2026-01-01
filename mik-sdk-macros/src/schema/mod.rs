@@ -11,18 +11,17 @@
 //! }
 //! ```
 
-mod field_schema;
-mod openapi;
-mod type_schema;
+pub mod codegen;
+pub mod types;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::parse_macro_input;
 
-use field_schema::generate_route_block;
-use openapi::generate_openapi_json;
-use type_schema::RoutesDef;
+use crate::openapi::generate_openapi_json;
+use codegen::generate_route_block;
+use types::RoutesDef;
 
 // =============================================================================
 // MAIN IMPLEMENTATION
@@ -141,4 +140,110 @@ pub fn routes_impl(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(tokens)
+}
+
+/// Inner implementation for potential future refactoring.
+#[allow(dead_code)]
+pub fn routes_impl_inner(input: proc_macro2::TokenStream) -> TokenStream2 {
+    let defs = match syn::parse2::<RoutesDef>(input) {
+        Ok(d) => d,
+        Err(e) => return e.to_compile_error(),
+    };
+
+    // Validate for duplicate routes (same method + pattern)
+    {
+        use std::collections::HashSet;
+        let mut seen: HashSet<(&str, &str)> = HashSet::new();
+        for route in &defs.routes {
+            let method_str = route.method.as_str();
+            for pattern in &route.patterns {
+                if !seen.insert((method_str, pattern.as_str())) {
+                    return syn::Error::new_spanned(
+                        &route.handler,
+                        format!(
+                            "Duplicate route: {} \"{}\" is already defined. Each method + pattern combination must be unique.",
+                            method_str.to_uppercase(),
+                            pattern
+                        )
+                    )
+                    .to_compile_error();
+                }
+            }
+        }
+    }
+
+    let route_blocks: Vec<TokenStream2> = defs.routes.iter().map(generate_route_block).collect();
+    let openapi_generator = generate_openapi_json(&defs.routes);
+
+    quote! {
+        const _: () = {
+            fn __mik_check_bindings_setup() {
+                fn __check<T: handler::Guest>() {}
+            }
+        };
+
+        pub fn __schema(_req: &mik_sdk::Request) -> handler::Response {
+            let schema_json = #openapi_generator;
+            handler::Response {
+                status: 200,
+                headers: vec![
+                    (
+                        mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
+                        mik_sdk::constants::MIME_JSON.to_string()
+                    ),
+                ],
+                body: Some(schema_json.into_bytes()),
+            }
+        }
+
+        struct Handler;
+
+        impl Guest for Handler {
+            fn handle(__mik_raw: handler::RequestData) -> handler::Response {
+                let __mik_method = match __mik_raw.method {
+                    handler::Method::Get => mik_sdk::Method::Get,
+                    handler::Method::Post => mik_sdk::Method::Post,
+                    handler::Method::Put => mik_sdk::Method::Put,
+                    handler::Method::Patch => mik_sdk::Method::Patch,
+                    handler::Method::Delete => mik_sdk::Method::Delete,
+                    handler::Method::Head => mik_sdk::Method::Head,
+                    handler::Method::Options => mik_sdk::Method::Options,
+                };
+
+                let __mik_path = __mik_raw.path.split('?').next().unwrap_or(&__mik_raw.path);
+
+                if __mik_path == "/__schema" {
+                    let __mik_req = mik_sdk::Request::new(
+                        __mik_method,
+                        __mik_raw.path.clone(),
+                        __mik_raw.headers.clone(),
+                        __mik_raw.body.clone(),
+                        ::std::collections::HashMap::new(),
+                    );
+                    return __schema(&__mik_req);
+                }
+
+                #(#route_blocks)*
+
+                handler::Response {
+                    status: 404,
+                    headers: vec![
+                        (
+                            mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
+                            mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
+                        )
+                    ],
+                    body: Some(mik_sdk::json::obj()
+                        .set("type", mik_sdk::json::str("about:blank"))
+                        .set("title", mik_sdk::json::str(mik_sdk::constants::status_title(404)))
+                        .set("status", mik_sdk::json::int(404))
+                        .set("detail", mik_sdk::json::str("Route not found"))
+                        .to_bytes()),
+                }
+            }
+        }
+
+        #[allow(unsafe_code)]
+        const _: () = { bindings::export!(Handler with_types_in bindings); };
+    }
 }

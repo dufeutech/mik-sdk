@@ -424,3 +424,12 @@ pub fn json_impl(input: TokenStream) -> TokenStream {
     let tokens = json_value_to_tokens(&value);
     TokenStream::from(tokens)
 }
+
+/// Inner implementation for potential future refactoring.
+#[allow(dead_code)]
+pub fn json_impl_inner(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    match syn::parse2::<JsonValue>(input) {
+        Ok(value) => json_value_to_tokens(&value),
+        Err(e) => e.to_compile_error(),
+    }
+}

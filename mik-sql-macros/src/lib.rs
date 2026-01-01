@@ -23,9 +23,12 @@ use proc_macro::TokenStream;
 
 mod codegen;
 mod create;
+mod debug;
 mod delete;
+mod errors;
 mod parse;
 mod read;
+mod trace;
 mod types;
 mod update;
 

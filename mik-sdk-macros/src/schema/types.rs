@@ -1,4 +1,4 @@
-//! Types and parsing for the routes macro.
+//! Route types and parsing for the routes macro.
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;

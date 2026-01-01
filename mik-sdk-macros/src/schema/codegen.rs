@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 
-use super::type_schema::{InputSource, RouteDef, TypedInput};
+use super::types::{InputSource, RouteDef, TypedInput};
 
 // =============================================================================
 // CODE GENERATION - ROUTE MATCHING

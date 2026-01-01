@@ -444,8 +444,10 @@ dependencies = [
 name = "mik-sdk-macros"
 version = "0.1.1"
 dependencies = [
+ "insta",
  "macrotest",
  "mik-sdk",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "serde_json",
@@ -470,7 +472,10 @@ dependencies = [
 name = "mik-sql-macros"
 version = "0.1.1"
 dependencies = [
+ "insta",
+ "macrotest",
  "mik-sql",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "syn",

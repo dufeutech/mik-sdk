@@ -44,6 +44,29 @@ pub fn ok_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
+/// Inner implementation for potential future refactoring.
+#[allow(dead_code)]
+pub fn ok_impl_inner(input: proc_macro2::TokenStream) -> TokenStream2 {
+    match syn::parse2::<JsonValue>(input) {
+        Ok(value) => {
+            let json_tokens = json_value_to_tokens(&value);
+            quote! {
+                handler::Response {
+                    status: 200,
+                    headers: vec![
+                        (
+                            ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
+                            ::mik_sdk::constants::MIME_JSON.to_string()
+                        )
+                    ],
+                    body: Some(#json_tokens.to_bytes()),
+                }
+            }
+        },
+        Err(e) => e.to_compile_error(),
+    }
+}
+
 /// RFC 7807 Problem Details - builder pattern fields.
 struct ProblemDetails {
     status: Expr,

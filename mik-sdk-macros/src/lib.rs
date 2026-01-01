@@ -25,6 +25,7 @@
 
 use proc_macro::TokenStream;
 
+mod debug;
 mod derive;
 mod dx;
 mod errors;
@@ -34,6 +35,7 @@ mod json;
 mod openapi;
 mod response;
 mod schema;
+mod trace;
 mod type_registry;
 
 // Re-export internal types needed by other modules

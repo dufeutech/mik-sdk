@@ -84,6 +84,61 @@ pub fn duplicate_field_error(span: Span, field: &str) -> Error {
     )
 }
 
+/// Build an error for an invalid field attribute value.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::errors::invalid_attr;
+///
+/// return Err(invalid_attr(
+///     span,
+///     "min",
+///     "a number",
+///     "#[field(min = 1)]"
+/// ));
+/// ```
+pub fn invalid_attr(span: Span, attr: &str, expected: &str, example: &str) -> Error {
+    Error::new(
+        span,
+        format!("'{attr}' expects {expected}.\n\n\u{2705} Correct: {example}",),
+    )
+}
+
+/// Build an error for expected syntax.
+///
+/// # Examples
+///
+/// ```ignore
+/// use crate::errors::expected_syntax;
+///
+/// return Err(expected_syntax(
+///     span,
+///     "=>",
+///     "after route path",
+///     "GET \"/users\" => list_users"
+/// ));
+/// ```
+pub fn expected_syntax(span: Span, expected: &str, context: &str, example: &str) -> Error {
+    Error::new(
+        span,
+        format!("Expected {expected} {context}.\n\nExample: {example}"),
+    )
+}
+
+/// Build an error for type mismatch.
+pub fn type_mismatch(span: Span, field: &str, expected: &str, got: &str) -> Error {
+    Error::new(
+        span,
+        format!("Type mismatch for '{field}'.\n\nExpected: {expected}\nGot: {got}"),
+    )
+}
+
+/// Build an error for unsupported construct.
+pub fn unsupported(span: Span, what: &str, suggestion: &str) -> Error {
+    Error::new(span, format!("{what}\n\n\u{2705} Try: {suggestion}"))
+}
+
 /// Extension trait to add context to errors.
 pub trait ErrorContext {
     /// Wrap an error with additional context.

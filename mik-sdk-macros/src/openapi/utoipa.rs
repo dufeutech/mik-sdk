@@ -4,7 +4,7 @@
 //! replacing raw string concatenation. All code runs at compile time only,
 //! with zero runtime cost in the final WASM binary.
 //!
-//! Some helpers are provided for future use (e.g., enum_schema, object_schema).
+//! Some helpers are provided for future use (e.g., `enum_schema`, `object_schema`).
 
 #![allow(dead_code)] // Helpers provided for future schema building
 
@@ -51,7 +51,7 @@ pub fn rust_type_to_schema(type_name: &str) -> RefOr<Schema> {
     }
 }
 
-/// Make a schema nullable (for Option<T>).
+/// Make a schema nullable (for `Option<T>`).
 /// Returns JSON string with nullable:true added.
 pub fn make_nullable_json(schema_json: &str) -> String {
     // Insert nullable:true after the opening brace
@@ -62,7 +62,7 @@ pub fn make_nullable_json(schema_json: &str) -> String {
     }
 }
 
-/// Build an array schema (for Vec<T>).
+/// Build an array schema (for `Vec<T>`).
 pub fn array_schema(items: RefOr<Schema>) -> Schema {
     ArrayBuilder::new().items(items).build().into()
 }
@@ -71,7 +71,7 @@ pub fn array_schema(items: RefOr<Schema>) -> Schema {
 // FIELD CONSTRAINTS
 // ============================================================================
 
-/// Field constraints from #[field(...)] attributes.
+/// Field constraints from `#[field(...)]` attributes.
 #[derive(Default)]
 pub struct FieldConstraints {
     pub min: Option<i64>,
@@ -81,7 +81,7 @@ pub struct FieldConstraints {
     pub description: Option<String>,
 }
 
-/// Apply field constraints to an ObjectBuilder.
+/// Apply field constraints to an `ObjectBuilder`.
 pub fn apply_constraints(
     mut builder: ObjectBuilder,
     constraints: &FieldConstraints,
@@ -170,7 +170,7 @@ pub fn schema_to_json(schema: &Schema) -> String {
     serde_json::to_string(schema).unwrap_or_else(|_| r#"{"type":"object"}"#.to_string())
 }
 
-/// Serialize a RefOr<Schema> to JSON string.
+/// Serialize a `RefOr<Schema>` to JSON string.
 pub fn ref_or_schema_to_json(schema: &RefOr<Schema>) -> String {
     serde_json::to_string(schema).unwrap_or_else(|_| r#"{"type":"object"}"#.to_string())
 }
