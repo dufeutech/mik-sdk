@@ -1,111 +1,86 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.1.1] - 2026-01-01
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Bug Fixes
 
-## [0.1.0] - 2025-12-27
+- Improve test coverage and add E2E test harness
+- Improve error messages, add helpers, polish API
+- Install Playwright for mermaid rendering in docs
+- Use correct wash-cli version 0.39.0
+- Exclude wasmcloud from CI - requires NATS setup
+- Use bump type dropdown (patch/minor/major)
 
-Initial release of mik-sdk - a portable WASI HTTP SDK using component composition.
+### Documentation
 
-### Core SDK (mik-sdk)
+- Convert ignored doctests to runnable examples
+- Add SDK enforcement checklist for contributors
+- Add documentation for bridge component functions
+- Restructure README for better front page experience
+- Align configuration tables in lib.rs and constants.rs
 
-#### Routing & Handlers
-- `routes!` macro with typed inputs - path, query, and body extraction
-- Derive macros: `#[derive(Type)]`, `#[derive(Query)]`, `#[derive(Path)]`
-- Response macros: `ok!`, `error!` (RFC 7807), `created!`, `no_content!`, `redirect!`
-- DX macros: `guard!`, `ensure!`
-- Error shortcuts: `not_found!`, `conflict!`, `forbidden!`, `bad_request!`, `accepted!`
+### Features
 
-#### HTTP Client
-- `fetch!` macro with headers, JSON body, timeout support
-- `.send()` method using native `wasi:http/outgoing-handler`
-- Trace ID propagation via `.with_trace_id()`
-- SSRF protection via `.deny_private_ips()` - blocks localhost, private ranges, IPv6 loopback
-- Header injection prevention (CR/LF validation)
-- `http-client` feature flag (opt-in, adds ~78KB)
+- Auto-bump versions with cargo-workspaces
+- Add MIK_MAX_JSON_SIZE env var for configurable JSON size limit
 
-#### Request Helpers
-- `param()`, `query()`, `query_all()` - URL parameters
-- `header()`, `header_all()` - HTTP headers (case-insensitive)
-- `body()`, `text()`, `json_with()` - body access
-- `trace_id()` - distributed tracing support
-- `is_json()`, `is_html()`, `is_form()`, `accepts()` - content negotiation
+### Miscellaneous
 
-#### JSON (Pure Rust)
-- `json::try_parse()` - lazy parsing, no tree built until needed
-- `json::obj()`, `json::arr()` - builder pattern
-- `path_str()`, `path_int()`, `path_float()`, `path_bool()` - ~100ns extraction
-- `path_exists()`, `path_is_null()` - ~40ns checks
-- **~33x faster** than tree traversal for 1-5 field extraction
+- Consolidate CI workflows and add project badges
+- Add architecture decision records (ADRs)
+- Stop tracking .notes folder
+- Fix clippy warnings in macros crate
+- Allow unsafe_code in WASM components for WIT bindings
+- Improve code quality and API consistency
+- Replace release-please with git-cliff, add WIT to releases
 
-#### Time Utilities
-- Native `wasi:clocks/wall-clock` on WASM (automatic)
-- `time::now()` - Unix seconds
-- `time::now_millis()` - Unix milliseconds
-- `time::now_iso()` - ISO 8601 string
-- Howard Hinnant's algorithm for date formatting
+### Refactor
 
-#### Random Utilities
-- Native `wasi:random/random` on WASM (automatic)
-- `random::uuid()` - UUID v4 (RFC 4122)
-- `random::hex(len)` - hex string
-- `random::bytes(len)` - random bytes
-- `random::u64()` - random integer
-- Cryptographically secure on all platforms
-
-#### Logging
-- Structured JSON logging to stderr
-- `log!(level, "msg", key: value)` macro
-- `log::info!`, `log::warn!`, `log::error!`, `log::debug!`
-
-#### Error Types
-- `ParseError`: `MissingField`, `InvalidFormat`, `TypeMismatch`, `Custom`
-- `ValidationError`: `Min`, `Max`, `Pattern`, `Format`, `Custom`
-- `.field()`, `.message()`, `.with_path()` for nested context
-- `#[non_exhaustive]` for forward compatibility
-
-### SQL Query Builder (mik-sql)
-
-- CRUD macros: `sql_read!`, `sql_create!`, `sql_update!`, `sql_delete!`
-- Filter operators: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`, `$in`, `$nin`
-- Text operators: `$like`, `$ilike`, `$starts_with`, `$ends_with`, `$contains`
-- Logical operators: `$and`, `$or`, `$not`, `$between`
-- Cursor-based pagination with multi-field keyset
-- Offset pagination with `page` and `limit`
-- Dialect support: Postgres (`$1`) and SQLite (`?1`)
-- SQL injection prevention
-
-### Bridge Component (mik-bridge)
-
-- WASI HTTP adapter for `wasi:http/incoming-handler`
-- Request/response translation
-- ~72KB compiled size
-
-### Architecture
-
-- Two-component model: handler + bridge via WAC composition
-- Handler: ~158KB (without HTTP client), ~236KB (with HTTP client)
-- Total composed: ~230-308KB
-- Runs on wasmtime, Spin, wasmCloud
-
-### Security
-
-- SSRF protection (private IP blocking)
-- Header injection prevention
-- SQL injection prevention
-- Input validation (headers, JSON depth, body size)
-- Cryptographically secure random
-- RFC 7807 Problem Details errors
+- Split large files into modular submodules
+- Improve API guidelines compliance (92% → ~98%)
+- Add #[non_exhaustive] and strict clippy lints
+- Resolve clippy warnings and add pre-commit hook
+- Use Self in Value enum (clippy use_self)
+- Align pre-commit and CI clippy flags
+- Add multi-runtime E2E tests and move getrandom to dev-deps
+- Add enum support for #[derive(Type)] and improve error messages
+- Reject trailing content after JSON value (security)
+- Split large test files into organized modules
 
 ### Testing
 
-- 415+ unit tests
-- Property-based tests (proptest)
-- Fuzz testing for JSON, request parsing, URL decoding
-- ISO 8601 roundtrip validation
+- Improve code coverage across all crates
+- Add filter.rs coverage tests
+- Expand macro and E2E test coverage
+- Handle connection reset in 413 payload test
+- Add wasmCloud to CI and expand E2E test coverage
 
----
+### Ci
 
-**Note:** This is v0.1.0 - an internal release. API may evolve.
+- Cache WASM tooling for faster E2E runs
+- Add spin to E2E test matrix
+- Use correct fermyon/actions version, ignore expand test
+
+## [mik-sdk-v0.1.0] - 2025-12-28
+
+### Bug Fixes
+
+- Use releases_created for cargo-workspace merged releases
+- Add crates.io link to documentation
+
+### Features
+
+- Initial release of mik-sdk
+
+### Miscellaneous
+
+- Release
+
+### Ci
+
+- Add manual release workflow
+- Use explicit wasm32-wasip2 target for bridge builds
+- Fix wasm path - cargo-component outputs to wasm32-wasip1
+
+
