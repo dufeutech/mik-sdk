@@ -163,10 +163,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/wash
-          key: wash-cli-0.36
+          key: wash-cli-0.39.0
       - name: Install wash-cli
         if: matrix.runtime == 'wasmcloud' && steps.cache-wash.outputs.cache-hit != 'true'
-        run: cargo install wash-cli@0.36 --locked
+        run: cargo install wash-cli@0.39.0 --locked
       - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
         run: cd mik-bridge && cargo component build --release
