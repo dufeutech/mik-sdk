@@ -6,7 +6,7 @@
 
 SQL query builder with Mongo-style filter operators and cursor pagination.
 
-> **Experimental** - This is version 0.0.1. The API may change between releases.
+> **v0.1.x** - Published and usable, but evolving. The API may change between minor versions.
 
 ## Features
 
@@ -148,7 +148,7 @@ println!("{}", result.sql);
 
 ## Requirements
 
-- Rust 1.85+ (Edition 2024)
+- Rust 1.89+ (Edition 2024)
 
 ## License
 

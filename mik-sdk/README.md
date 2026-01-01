@@ -6,7 +6,7 @@
 
 Ergonomic SDK for building WASI HTTP handlers with pure Rust.
 
-> **Experimental** - This is version 0.0.1. The API may change between releases.
+> **v0.1.x** - Published and usable, but evolving. The API may change between minor versions.
 
 ## Features
 
@@ -55,16 +55,16 @@ fn home(_req: &Request) -> Response {
 
 fn hello(path: HelloPath, _req: &Request) -> Response {
     ok!({
-        "greeting": str(format!("Hello, {}!", path.name)),
-        "name": str(&path.name)
+        "greeting": format!("Hello, {}!", path.name),
+        "name": path.name
     })
 }
 
 fn search(query: SearchQuery, _req: &Request) -> Response {
     ok!({
-        "query": query.q.as_ref().map(json::str).unwrap_or(json::null()),
-        "page": int(query.page),
-        "limit": int(query.limit)
+        "query": query.q,
+        "page": query.page,
+        "limit": query.limit
     })
 }
 ```
@@ -112,6 +112,23 @@ let (sql, params) = sql_read!(users {
 });
 ```
 
+### HTTP Client
+
+```rust
+// Simple request
+let resp = fetch!(GET "https://api.example.com/users").send()?;
+
+// POST with JSON body
+let resp = fetch!(POST "https://api.example.com/users", json: {
+    "name": "Alice"
+}).send()?;
+
+// SSRF protection for user-provided URLs
+let resp = fetch!(GET &user_url)
+    .deny_private_ips()  // Blocks localhost, 10.x, 192.168.x, etc.
+    .send()?;
+```
+
 ## Request Helpers
 
 ```rust
@@ -126,27 +143,34 @@ req.is_form()            // Content-Type is form: bool
 req.accepts("json")      // Accept header check: bool
 ```
 
-## Type Hints
+## Type Inference
 
-Use in `ok!`, `json!`, and `error!` macros:
+Variables work directly in `ok!` and `json!` macros via the `ToJson` trait:
 
-- `str(expr)` - JSON string
-- `int(expr)` - JSON integer
-- `float(expr)` - JSON float
-- `bool(expr)` - JSON boolean
+```rust
+ok!({
+    "name": name,       // String → JSON string
+    "age": age,         // i32 → JSON integer
+    "score": score,     // Option<f64> → JSON number or null
+    "tags": tags        // Vec<&str> → JSON array
+})
+```
+
+Type hints available for explicit control: `str()`, `int()`, `float()`, `bool()`
 
 ## API Reference
 
 ### Modules
 
-| Module | Purpose |
-|--------|---------|
-| `json` | JSON building and lazy parsing |
-| `time` | UTC timestamps and ISO 8601 |
-| `random` | UUIDs, tokens, random bytes |
-| `log` | Structured logging to stderr |
-| `env` | Environment variable access |
-| `status` | HTTP status code constants |
+| Module        | Purpose                        |
+|---------------|--------------------------------|
+| `json`        | JSON building and lazy parsing |
+| `time`        | UTC timestamps and ISO 8601    |
+| `random`      | UUIDs, tokens, random bytes    |
+| `log`         | Structured logging to stderr   |
+| `env`         | Environment variable access    |
+| `http_client` | Outbound HTTP requests         |
+| `status`      | HTTP status code constants     |
 
 ### Response Macros
 
@@ -234,9 +258,33 @@ log::debug!("Debug: {:?}", data);  // Compiled out in release
 log!(info, "user created", id: user_id, email: &email);
 ```
 
+## Feature Flags
+
+```toml
+[dependencies]
+mik-sdk = "0.1"  # Includes sql + http-client by default
+
+# Minimal build
+mik-sdk = { version = "0.1", default-features = false }
+```
+
+| Feature       | Default | Description                 |
+|---------------|---------|------------------------------|
+| `sql`         | Yes     | SQL query builder macros     |
+| `http-client` | Yes     | HTTP client with `.send()`   |
+
+## Configuration
+
+Environment variables for runtime limits:
+
+| Variable            | Default | Description                         |
+|---------------------|---------|-------------------------------------|
+| `MIK_MAX_JSON_SIZE` | 1 MB    | Maximum JSON input size for parsing |
+| `MIK_MAX_BODY_SIZE` | 10 MB   | Maximum request body size (bridge)  |
+
 ## Requirements
 
-- Rust 1.85+ (Edition 2024)
+- Rust 1.89+ (Edition 2024)
 - Target: `wasm32-wasip2`
 - Build tool: `cargo-component`
 

@@ -14,8 +14,8 @@ cd examples/hello-world
 cargo component build --release
 
 # Compose with bridge
-wac plug ../mik-bridge/target/wasm32-wasip2/release/mik_bridge.wasm \
-    --plug target/wasm32-wasip2/release/hello_world.wasm \
+wac plug ../mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm \
+    --plug target/wasm32-wasip1/release/hello_world.wasm \
     -o service.wasm
 
 # Run with wasmtime
@@ -48,25 +48,24 @@ A minimal example demonstrating the core features of mik-sdk.
 ```rust
 use mik_sdk::prelude::*;
 
-router! {
-    "/" | "" => home,
-    "/hello/{name}" => hello,
-    "/echo" => echo,
+routes! {
+    GET "/" => home,
+    GET "/hello/{name}" => hello,
+    POST "/echo" => echo,
 }
 
-fn home(_req: &Request) -> http::Response {
+fn home(_req: &Request) -> Response {
     ok!({
         "message": "Welcome to mik-sdk!",
-        "version": "0.2.0",
         "endpoints": ["/", "/hello/{name}", "/echo"]
     })
 }
 
-fn hello(req: &Request) -> http::Response {
+fn hello(req: &Request) -> Response {
     let name = req.param("name").unwrap_or("stranger");
     ok!({
-        "greeting": str(format!("Hello, {}!", name)),
-        "name": str(name)
+        "greeting": format!("Hello, {}!", name),
+        "name": name
     })
 }
 ```
@@ -153,7 +152,7 @@ flowchart TB
 ## Prerequisites
 
 **Required:**
-- Rust 1.85+
+- Rust 1.89+
 - `cargo-component` - `cargo install cargo-component`
 - `wac-cli` - `cargo install wac-cli`
 - `wasm32-wasip2` target - `rustup target add wasm32-wasip2`
@@ -164,7 +163,7 @@ flowchart TB
 ### Request Handling
 
 ```rust
-fn handler(req: &Request) -> http::Response {
+fn handler(req: &Request) -> Response {
     // Path parameters (from route pattern)
     let id = req.param("id").unwrap_or("?");
 
@@ -172,17 +171,12 @@ fn handler(req: &Request) -> http::Response {
     let page = req.query("page").unwrap_or("1");
 
     // JSON body
-    let data: MyType = match req.json() {
-        Ok(d) => d,
-        Err(_) => return error!("INVALID_JSON", "Parse error")
-    };
-
-    // Raw body
-    if let Some(bytes) = &req.body {
-        // Process binary data
+    if let Some(parsed) = req.json() {
+        let name = parsed.path_str(&["name"]);
+        // ...
     }
 
-    ok!({ "id": str(id) })
+    ok!({ "id": id })
 }
 ```
 
@@ -192,15 +186,15 @@ fn handler(req: &Request) -> http::Response {
 // Success with JSON
 ok!({ "message": "Success", "data": value })
 
-// Simple error
-error!("NOT_FOUND", "Resource not found")
+// Error macros
+not_found!("Resource not found")
+bad_request!("Invalid input")
 
-// Error with full RFC 7807 details
+// RFC 7807 Problem Details
 error! {
     status: 422,
     title: "Validation Error",
-    detail: "Invalid input",
-    meta: { "field": "email" }
+    detail: "Invalid input"
 }
 ```
 
