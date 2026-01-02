@@ -142,7 +142,7 @@ flowchart TB
     end
 
     subgraph composed["Composed Output"]
-        service["service.wasm ~236KB<br/>Exports: wasi:http/incoming-handler"]
+        service["service.wasm ~240KB<br/>Exports: wasi:http/incoming-handler"]
     end
 
     handler --> service
