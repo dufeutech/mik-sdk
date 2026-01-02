@@ -112,9 +112,25 @@ mod validate;
 
 pub use builder::{
     Aggregate, AggregateFunc, CompoundFilter, ComputedField, CursorDirection, DeleteBuilder,
-    Filter, FilterExpr, InsertBuilder, LogicalOp, Operator, QueryBuilder, QueryResult, SortDir,
-    SortField, UpdateBuilder, Value, and, delete, insert, not, or, simple, update,
+    Filter, FilterExpr, InsertBuilder, LogicalOp, Operator, ParseError, QueryBuilder, QueryResult,
+    SortDir, SortField, UpdateBuilder, Value, and, delete, insert, not, or, parse_filter,
+    parse_filter_bytes, simple, update,
 };
+
+/// Re-export miniserde's json module for runtime filter parsing.
+///
+/// Use this to parse JSON strings into values for `FilterExpr::from_json()`.
+///
+/// # Example
+///
+/// ```
+/// use mik_sql::{json, FilterExpr};
+///
+/// let json_str = r#"{"name": {"$eq": "Alice"}}"#;
+/// let value: miniserde::json::Value = json::from_str(json_str).unwrap();
+/// let filter = FilterExpr::from_json(&value).unwrap();
+/// ```
+pub use miniserde::json;
 
 // Internal functions used by macros - not part of public API
 #[doc(hidden)]
@@ -160,9 +176,10 @@ pub mod prelude {
     pub use crate::{
         Aggregate, AggregateFunc, CompoundFilter, ComputedField, Cursor, CursorDirection,
         CursorError, DeleteBuilder, Dialect, Filter, FilterExpr, FilterValidator, InsertBuilder,
-        IntoCursor, KeysetCondition, LogicalOp, Operator, PageInfo, Postgres, QueryBuilder,
-        QueryResult, SortDir, SortField, Sqlite, UpdateBuilder, ValidationError, Value, and,
-        delete, insert, merge_filters, not, or, postgres, simple, sqlite, update,
+        IntoCursor, KeysetCondition, LogicalOp, Operator, PageInfo, ParseError, Postgres,
+        QueryBuilder, QueryResult, SortDir, SortField, Sqlite, UpdateBuilder, ValidationError,
+        Value, and, delete, insert, json, merge_filters, not, or, parse_filter, parse_filter_bytes,
+        postgres, simple, sqlite, update,
     };
 
     // Re-export macros

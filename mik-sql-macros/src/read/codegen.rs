@@ -196,7 +196,7 @@ pub fn generate_sql_tokens(input: SqlInput) -> TokenStream2 {
                     .max_depth(#max_depth_val);
 
                 for __user_filter in &#merge_expr {
-                    __validator.validate(__user_filter).map_err(|e| e.to_string())?;
+                    __validator.validate(&__user_filter).map_err(|e| e.to_string())?;
                 }
             };
 

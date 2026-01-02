@@ -517,6 +517,7 @@ dependencies = [
  "insta",
  "mik-sdk-macros",
  "mik-sql-macros",
+ "miniserde",
  "proptest",
  "rusqlite",
  "static_assertions",

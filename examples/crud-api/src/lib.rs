@@ -7,6 +7,7 @@
 //!
 //! This example shows how to build a typical CRUD API with:
 //! - GET /users - list users (offset pagination)
+//! - POST /users/search - search users with Mongo-style filters
 //! - GET /users/{id} - get user by ID
 //! - POST /users - create user
 //! - PUT /users/{id} - update user
@@ -29,7 +30,7 @@ mod bindings;
 use bindings::exports::mik::core::handler::{self, Guest, Response};
 use bindings::wasi::clocks::wall_clock;
 use mik_sdk::prelude::*;
-use mik_sql::{Cursor, PageInfo, sql_create, sql_delete, sql_read, sql_update};
+use mik_sql::{Cursor, PageInfo, parse_filter, sql_create, sql_delete, sql_read, sql_update};
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -55,6 +56,14 @@ pub struct ListUsersQuery {
 #[derive(Query)]
 pub struct ListPostsQuery {
     pub after: Option<String>,
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+
+#[derive(Query)]
+pub struct SearchUsersQuery {
+    #[field(default = 1)]
+    pub page: u32,
     #[field(default = 20, max = 100)]
     pub limit: u32,
 }
@@ -122,9 +131,10 @@ pub struct PostListResponse {
 routes! {
     GET "/" => index -> IndexResponse,
 
-    // Users - list and create
+    // Users - list, search, create
     GET  "/users" => list_users(query: ListUsersQuery) -> UserListResponse,
     POST "/users" => create_user(body: CreateUserInput) -> User,
+    POST "/users/search" => search_users(query: SearchUsersQuery) -> UserListResponse,
 
     // Users - by ID
     GET    "/users/{id}" => get_user(path: UserPath) -> User,
@@ -145,6 +155,7 @@ fn index(_req: &Request) -> Response {
         "version": "0.1.0",
         "endpoints": {
             "list_users": "GET /users?page=1&limit=50",
+            "search_users": "POST /users/search?page=1&limit=20 (body: Mongo-style filter)",
             "get_user": "GET /users/{id}",
             "create_user": "POST /users",
             "update_user": "PUT /users/{id}",
@@ -179,6 +190,57 @@ fn list_users(query: ListUsersQuery, _req: &Request) -> Response {
         "_debug": {
             "sql": sql,
             "param_count": param_count
+        }
+    })
+}
+
+/// Search users with Mongo-style filters.
+///
+/// Example request:
+/// ```text
+/// POST /users/search?page=1&limit=20
+/// Content-Type: application/json
+///
+/// {"name": {"$starts_with": "A"}, "status": "active"}
+/// ```
+///
+/// The filter supports operators: `$eq`, `$ne`, `$gt`, `$gte`, `$lt`, `$lte`,
+/// `$in`, `$nin`, `$like`, `$starts_with`, `$ends_with`, `$contains`, `$and`, `$or`, `$not`
+fn search_users(query: SearchUsersQuery, req: &Request) -> Response {
+    // Parse filter from request body
+    let filter_json = ensure!(req.text(), 400, "Filter body required");
+    let filter = ensure!(parse_filter(filter_json), 400, "Invalid filter syntax");
+
+    // Generate SQL with merged filter
+    // Returns Result because merge: requires runtime validation
+    let (sql, params) = ensure!(
+        sql_read!(users {
+            select: [id, name, email, status, created_at],
+            filter: { active: true },              // Always applied (trusted)
+            merge: filter,                          // User's filter (validated)
+            allow: [name, email, status, created_at], // Whitelist of allowed fields
+            deny_ops: [$like, $ilike],              // Deny regex-like operators
+            order: name,
+            page: query.page,
+            limit: query.limit,
+        }),
+        400,
+        "Invalid filter field or operator"
+    );
+
+    // In production: execute query against database
+    let param_count = params.len();
+    ok!({
+        "users": [
+            { "id": "1", "name": "Alice", "email": "alice@example.com", "status": "active" }
+        ],
+        "page": query.page,
+        "limit": query.limit,
+        "total": 1,
+        "_debug": {
+            "sql": sql,
+            "param_count": param_count,
+            "note": "Filter merged with base filter (active: true)"
         }
     })
 }

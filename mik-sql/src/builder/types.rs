@@ -99,6 +99,67 @@ impl CompoundFilter {
     }
 }
 
+impl FilterExpr {
+    /// Collect all simple filters from this expression into a vector.
+    ///
+    /// This flattens compound filters, extracting all individual `Filter` items.
+    /// Used by the `merge:` option in `sql_read!` to iterate over user filters.
+    #[must_use]
+    pub fn collect_filters(&self) -> Vec<Filter> {
+        let mut result = Vec::new();
+        self.collect_filters_into(&mut result);
+        result
+    }
+
+    fn collect_filters_into(&self, result: &mut Vec<Filter>) {
+        match self {
+            Self::Simple(f) => result.push(f.clone()),
+            Self::Compound(c) => {
+                for expr in &c.filters {
+                    expr.collect_filters_into(result);
+                }
+            },
+        }
+    }
+
+    /// Returns an iterator over all simple filters in this expression.
+    ///
+    /// This flattens compound filters, yielding all individual `Filter` items.
+    #[must_use]
+    pub fn iter(&self) -> FilterExprIter {
+        self.into_iter()
+    }
+}
+
+/// Iterator over filters in a `FilterExpr`.
+#[derive(Debug)]
+pub struct FilterExprIter {
+    filters: std::vec::IntoIter<Filter>,
+}
+
+impl Iterator for FilterExprIter {
+    type Item = Filter;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.filters.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.filters.size_hint()
+    }
+}
+
+impl IntoIterator for &FilterExpr {
+    type Item = Filter;
+    type IntoIter = FilterExprIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        FilterExprIter {
+            filters: self.collect_filters().into_iter(),
+        }
+    }
+}
+
 /// Aggregation functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
