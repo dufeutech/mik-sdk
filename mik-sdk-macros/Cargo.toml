@@ -36,7 +36,6 @@ trybuild = "1.0"
 macrotest = "1.0"
 # Snapshot testing for macro expansion verification
 insta = "1.40"
-prettyplease = "0.2"
 
 [lints]
 workspace = true
