@@ -36,7 +36,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache release tools
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: release-tools-git-cliff-2.7-cargo-workspaces-0.3
+
       - name: Install tools
+        if: steps.cache-tools.outputs.cache-hit != 'true'
         run: |
           cargo install git-cliff --locked
           cargo install cargo-workspaces --locked
@@ -140,7 +148,15 @@ jobs:
         with:
           targets: wasm32-wasip2
 
+      - name: Cache cargo-component
+        id: cache-cargo-component
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-component
+          key: cargo-component-0.18
+
       - name: Install cargo-component
+        if: steps.cache-cargo-component.outputs.cache-hit != 'true'
         run: cargo install cargo-component --locked
 
       - name: Build mik-bridge
@@ -190,10 +206,19 @@ jobs:
         with:
           targets: wasm32-wasip2
 
+      - name: Cache release tools
+        id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: release-tools-cargo-component-0.18-git-cliff-2.7
+
       - name: Install cargo-component
+        if: steps.cache-tools.outputs.cache-hit != 'true'
         run: cargo install cargo-component --locked
 
       - name: Install git-cliff
+        if: steps.cache-tools.outputs.cache-hit != 'true'
         run: cargo install git-cliff --locked
 
       - name: Build bridge for release artifact
