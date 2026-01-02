@@ -7,10 +7,8 @@ use syn::{
     parse::{Parse, ParseStream},
 };
 
+use crate::constants::VALID_HTTP_METHODS;
 use crate::errors::did_you_mean;
-
-/// Valid HTTP methods for routes.
-const VALID_HTTP_METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
 /// Valid input sources for route handlers.
 const VALID_INPUT_SOURCES: &[&str] = &["path", "body", "query"];

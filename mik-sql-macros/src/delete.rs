@@ -3,15 +3,14 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Result, Token, braced, bracketed,
+    Result, Token, braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
-    punctuated::Punctuated,
 };
 
-use crate::codegen::sql_filter_expr_to_tokens;
+use crate::codegen::{generate_returning_chain, sql_filter_expr_to_tokens};
 use crate::errors::did_you_mean;
-use crate::parse::{parse_filter_block, parse_optional_dialect};
+use crate::parse::{parse_filter_block, parse_optional_dialect, parse_returning_fields};
 use crate::types::{SqlDialect, SqlFilterExpr};
 
 /// Valid options for `sql_delete!` macro.
@@ -46,11 +45,7 @@ impl Parse for DeleteInput {
                     where_expr = Some(parse_filter_block(&where_content)?);
                 },
                 "returning" => {
-                    let ret_content;
-                    bracketed!(ret_content in content);
-                    let fields: Punctuated<syn::Ident, Token![,]> =
-                        ret_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                    returning = fields.into_iter().collect();
+                    returning = parse_returning_fields(&content)?;
                 },
                 other => {
                     let suggestion = did_you_mean(other, VALID_DELETE_OPTIONS);
@@ -98,15 +93,7 @@ pub fn sql_delete_impl(input: TokenStream) -> TokenStream {
         },
     );
 
-    let returning_chain = if returning.is_empty() {
-        quote! {}
-    } else {
-        let ret_strs: Vec<String> = returning
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-        quote! { .returning(&[#(#ret_strs),*]) }
-    };
+    let returning_chain = generate_returning_chain(&returning);
 
     let tokens = quote! {
         {

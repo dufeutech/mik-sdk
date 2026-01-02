@@ -4,14 +4,13 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Result, Token, braced, bracketed,
+    Result, Token, braced,
     parse::{Parse, ParseStream},
     parse_macro_input,
-    punctuated::Punctuated,
 };
 
-use crate::codegen::sql_value_to_tokens;
-use crate::parse::{parse_optional_dialect, parse_sql_value};
+use crate::codegen::{generate_returning_chain, sql_value_to_tokens};
+use crate::parse::{parse_optional_dialect, parse_returning_fields, parse_sql_value};
 use crate::types::{SqlDialect, SqlValue};
 
 struct InsertInput {
@@ -37,11 +36,7 @@ impl Parse for InsertInput {
             content.parse::<Token![:]>()?;
 
             if key.to_string().as_str() == "returning" {
-                let ret_content;
-                bracketed!(ret_content in content);
-                let fields: Punctuated<syn::Ident, Token![,]> =
-                    ret_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                returning = fields.into_iter().collect();
+                returning = parse_returning_fields(&content)?;
             } else {
                 let value = parse_sql_value(&content)?;
                 columns.push((key, value));
@@ -80,15 +75,7 @@ pub fn sql_create_impl(input: TokenStream) -> TokenStream {
         .map(|(_, v)| sql_value_to_tokens(v))
         .collect();
 
-    let returning_chain = if returning.is_empty() {
-        quote! {}
-    } else {
-        let ret_strs: Vec<String> = returning
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-        quote! { .returning(&[#(#ret_strs),*]) }
-    };
+    let returning_chain = generate_returning_chain(&returning);
 
     let tokens = quote! {
         {

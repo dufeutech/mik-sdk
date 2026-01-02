@@ -9,11 +9,9 @@ use syn::{
     punctuated::Punctuated,
 };
 
+use crate::constants::VALID_HTTP_METHODS;
 use crate::errors::{did_you_mean, duplicate_field_error};
 use crate::json::{JsonValue, json_value_to_tokens};
-
-/// Valid HTTP methods for fetch! macro.
-const VALID_METHODS: &[&str] = &["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
 
 /// Valid options for fetch! macro.
 const VALID_OPTIONS: &[&str] = &["headers", "json", "body", "timeout"];
@@ -124,8 +122,8 @@ impl Parse for FetchInput {
 
         // Validate method
         let method_str = method.to_string().to_uppercase();
-        if !VALID_METHODS.contains(&method_str.as_str()) {
-            let suggestion = did_you_mean(&method_str, VALID_METHODS);
+        if !VALID_HTTP_METHODS.contains(&method_str.as_str()) {
+            let suggestion = did_you_mean(&method_str, VALID_HTTP_METHODS);
             return Err(syn::Error::new_spanned(
                 &method,
                 format!(

@@ -1,6 +1,10 @@
 //! Common parsing utilities for SQL CRUD macros.
 
-use syn::{Result, Token, parse::ParseStream};
+use syn::{
+    Result, Token, bracketed,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+};
 
 use super::filter::parse_sql_value;
 use crate::types::{SqlDialect, SqlValue};
@@ -35,4 +39,13 @@ pub fn parse_column_values(input: ParseStream) -> Result<Vec<(syn::Ident, SqlVal
     }
 
     Ok(result)
+}
+
+/// Parse `returning: [field1, field2, ...]` field list.
+pub fn parse_returning_fields(input: ParseStream) -> Result<Vec<syn::Ident>> {
+    let content;
+    bracketed!(content in input);
+    let fields: Punctuated<syn::Ident, Token![,]> =
+        content.parse_terminated(syn::Ident::parse, Token![,])?;
+    Ok(fields.into_iter().collect())
 }
