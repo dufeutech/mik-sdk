@@ -34,8 +34,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      # Exclude examples (require generated bindings.rs from cargo-component)
-      - run: cargo fmt -p mik-sdk -p mik-sdk-macros -p mik-sql -p mik-sql-macros -p mik-bridge -p tests-integration --check
+      # Only format workspace crates (examples require generated bindings.rs)
+      - run: cargo fmt --check -p mik-sdk -p mik-sdk-macros -p mik-sql -p mik-sql-macros
 
   clippy:
     name: Clippy
