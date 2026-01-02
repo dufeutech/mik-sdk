@@ -1,6 +1,60 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.1.2] - 2026-01-02
+
+### Bug Fixes
+
+- Remove __schema endpoint tests
+- Ignore example compile tests (require cargo-component)
+- Ignore json_macro_test that requires cargo-component
+- Ignore remaining tests that require cargo-component
+- Exclude examples from fmt check (require cargo-component)
+- Correct cargo fmt syntax for workspace packages
+
+### Documentation
+
+- Update READMEs for v0.1.x release
+- Add parse_filter_bytes example and E2E tests
+- Add beginner-friendly README for snippets
+- Add READMEs for macro crates (crates.io)
+
+### Features
+
+- Add "did you mean?" suggestions to error messages
+- Add runtime filter parsing with parse_filter
+- Add VS Code snippets for all mik-sdk macros
+- Static schema generation excluded from WASM builds
+- Add deploy-github template for CI/CD
+
+### Miscellaneous
+
+- Update examples with static OpenAPI schema
+- Gitignore generated files (bindings, openapi schemas)
+- Relax inter-crate version constraints (0.1.0 -> 0.1)
+- Normalize line endings in READMEs
+
+### Refactor
+
+- Consolidate and modularize macro crates
+- Extract shared logic to __write_simple_log function
+- Improve maintainability with debug features and modular structure
+- Apply error helpers to remaining call sites
+- Add "did you mean?" to HTTP methods and input sources
+- Use duplicate_field_error helper
+- Extract shared helpers for DRY compliance
+- Rename parse_returning_fields to parse_ident_list
+- Remove parse_filter_bytes (use parse_filter with req.text())
+
+### Testing
+
+- Add SQLite integration tests for generated SQL validation
+- Add expansion snapshots and remove dead code
+
+### Ci
+
+- Cache tools for faster releases
+
 ## [0.1.1] - 2026-01-01
 
 ### Bug Fixes
@@ -34,6 +88,7 @@ All notable changes to this project will be documented in this file.
 - Allow unsafe_code in WASM components for WIT bindings
 - Improve code quality and API consistency
 - Replace release-please with git-cliff, add WIT to releases
+- Release v0.1.1
 
 ### Refactor
 
