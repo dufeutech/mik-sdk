@@ -7,6 +7,14 @@ use syn::{
     parse::{Parse, ParseStream},
 };
 
+use crate::errors::did_you_mean;
+
+/// Valid HTTP methods for routes.
+const VALID_HTTP_METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+
+/// Valid input sources for route handlers.
+const VALID_INPUT_SOURCES: &[&str] = &["path", "body", "query"];
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -129,11 +137,12 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
         "DELETE" => HttpMethod::Delete,
         "HEAD" => HttpMethod::Head,
         "OPTIONS" => HttpMethod::Options,
-        _ => {
+        other => {
+            let suggestion = did_you_mean(other, VALID_HTTP_METHODS);
             return Err(syn::Error::new_spanned(
                 &method_ident,
                 format!(
-                    "Invalid HTTP method '{method_ident}'.\n\
+                    "Invalid HTTP method '{method_ident}'.{suggestion}\n\
                      \n\
                      Valid methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS\n\
                      \n\
@@ -332,10 +341,11 @@ fn parse_typed_inputs(
             "body" => InputSource::Body,
             "query" => InputSource::Query,
             other => {
+                let suggestion = did_you_mean(other, VALID_INPUT_SOURCES);
                 return Err(syn::Error::new_spanned(
                     &source_ident,
                     format!(
-                        "Invalid input source '{other}'.\n\
+                        "Invalid input source '{other}'.{suggestion}\n\
                          \n\
                          Valid sources:\n\
                          - path  - URL path parameters (e.g., /users/{{id}})\n\

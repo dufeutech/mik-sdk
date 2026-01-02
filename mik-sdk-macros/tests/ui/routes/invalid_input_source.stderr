@@ -1,5 +1,7 @@
 error: Invalid input source 'data'.
 
+       Did you mean 'path'?
+
        Valid sources:
        - path  - URL path parameters (e.g., /users/{id})
        - body  - JSON request body
