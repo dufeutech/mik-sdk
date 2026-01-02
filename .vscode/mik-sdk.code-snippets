@@ -1,0 +1,578 @@
+{
+  // ============================================================================
+  // ROUTES & HANDLERS
+  // ============================================================================
+  "routes! macro": {
+    "prefix": ["routes", "routes!"],
+    "body": [
+      "routes! {",
+      "    GET \"/\" => ${1:index},",
+      "    GET \"/${2:items}\" => list_${2:items}(query: ${3:ListQuery}) -> Vec<${4:Item}>,",
+      "    POST \"/${2:items}\" => create_${2:item}(body: ${5:CreateInput}) -> ${4:Item},",
+      "    GET \"/${2:items}/{id}\" => get_${2:item}(path: Id) -> ${4:Item},",
+      "    PUT \"/${2:items}/{id}\" => update_${2:item}(path: Id, body: ${6:UpdateInput}) -> ${4:Item},",
+      "    DELETE \"/${2:items}/{id}\" => delete_${2:item}(path: Id),",
+      "}"
+    ],
+    "description": "Define HTTP routes with typed inputs"
+  },
+  "routes! single GET": {
+    "prefix": ["route-get", "GET"],
+    "body": "GET \"/${1:path}\" => ${2:handler}${3:(query: ${4:Query})}${5: -> ${6:Response}},",
+    "description": "Single GET route"
+  },
+  "routes! single POST": {
+    "prefix": ["route-post", "POST"],
+    "body": "POST \"/${1:path}\" => ${2:handler}(body: ${3:Input})${4: -> ${5:Response}},",
+    "description": "Single POST route with body"
+  },
+  "routes! single PUT": {
+    "prefix": ["route-put", "PUT"],
+    "body": "PUT \"/${1:path}/{id}\" => ${2:handler}(path: Id, body: ${3:Input})${4: -> ${5:Response}},",
+    "description": "Single PUT route with path and body"
+  },
+  "routes! single DELETE": {
+    "prefix": ["route-delete", "DELETE"],
+    "body": "DELETE \"/${1:path}/{id}\" => ${2:handler}(path: Id),",
+    "description": "Single DELETE route"
+  },
+  "Handler function": {
+    "prefix": ["fn-handler", "handler"],
+    "body": [
+      "fn ${1:handler}(${2:_req}: &Request) -> Response {",
+      "    ok!({",
+      "        \"${3:message}\": \"${4:success}\"",
+      "    })",
+      "}"
+    ],
+    "description": "Handler function template"
+  },
+  "Handler with query": {
+    "prefix": ["fn-handler-query", "handler-query"],
+    "body": [
+      "fn ${1:handler}(query: ${2:Query}, _req: &Request) -> Response {",
+      "    ok!({",
+      "        \"page\": query.page,",
+      "        \"limit\": query.limit",
+      "    })",
+      "}"
+    ],
+    "description": "Handler function with query parameters"
+  },
+  "Handler with body": {
+    "prefix": ["fn-handler-body", "handler-body"],
+    "body": [
+      "fn ${1:handler}(body: ${2:Input}, _req: &Request) -> Response {",
+      "    // body is already validated",
+      "    ok!({",
+      "        \"${3:name}\": body.${3:name}",
+      "    })",
+      "}"
+    ],
+    "description": "Handler function with JSON body"
+  },
+  "Handler with path": {
+    "prefix": ["fn-handler-path", "handler-path"],
+    "body": [
+      "fn ${1:handler}(path: ${2:Id}, _req: &Request) -> Response {",
+      "    let id = &path.id;",
+      "    ok!({",
+      "        \"id\": id",
+      "    })",
+      "}"
+    ],
+    "description": "Handler function with path parameters"
+  },
+
+  // ============================================================================
+  // DERIVE MACROS
+  // ============================================================================
+  "#[derive(Type)]": {
+    "prefix": ["derive-type", "Type"],
+    "body": [
+      "#[derive(Type)]",
+      "pub struct ${1:Name} {",
+      "    ${2:pub ${3:field}: ${4:String},}",
+      "}"
+    ],
+    "description": "Derive Type for JSON body/response"
+  },
+  "#[derive(Query)]": {
+    "prefix": ["derive-query", "Query"],
+    "body": [
+      "#[derive(Query)]",
+      "pub struct ${1:Name}Query {",
+      "    #[field(default = 1)]",
+      "    pub page: u32,",
+      "    #[field(default = 20, max = 100)]",
+      "    pub limit: u32,",
+      "    ${2:pub search: Option<String>,}",
+      "}"
+    ],
+    "description": "Derive Query for URL query parameters"
+  },
+  "#[derive(Path)]": {
+    "prefix": ["derive-path", "Path"],
+    "body": [
+      "#[derive(Path)]",
+      "pub struct ${1:Name}Path {",
+      "    pub ${2:id}: ${3:String},",
+      "}"
+    ],
+    "description": "Derive Path for URL path parameters"
+  },
+
+  // ============================================================================
+  // FIELD ATTRIBUTES
+  // ============================================================================
+  "#[field(default)]": {
+    "prefix": ["field-default", "#[field(default"],
+    "body": "#[field(default = ${1:value})]",
+    "description": "Set default value for field"
+  },
+  "#[field(min)]": {
+    "prefix": ["field-min", "#[field(min"],
+    "body": "#[field(min = ${1:1})]",
+    "description": "Set minimum value/length"
+  },
+  "#[field(max)]": {
+    "prefix": ["field-max", "#[field(max"],
+    "body": "#[field(max = ${1:100})]",
+    "description": "Set maximum value/length"
+  },
+  "#[field(min, max)]": {
+    "prefix": ["field-range", "#[field(min, max"],
+    "body": "#[field(min = ${1:1}, max = ${2:100})]",
+    "description": "Set min and max constraints"
+  },
+  "#[field(format)]": {
+    "prefix": ["field-format", "#[field(format"],
+    "body": "#[field(format = \"${1|email,uri,uuid,date,date-time,ipv4,ipv6|}\")]",
+    "description": "Validate field format"
+  },
+  "#[field(pattern)]": {
+    "prefix": ["field-pattern", "#[field(pattern"],
+    "body": "#[field(pattern = r\"${1:^[a-z]+$}\")]",
+    "description": "Validate against regex pattern"
+  },
+  "#[field(rename)]": {
+    "prefix": ["field-rename", "#[field(rename"],
+    "body": "#[field(rename = \"${1:jsonFieldName}\")]",
+    "description": "Rename field in JSON"
+  },
+  "#[field(docs)]": {
+    "prefix": ["field-docs", "#[field(docs"],
+    "body": "#[field(docs = \"${1:Field description}\")]",
+    "description": "Add OpenAPI description"
+  },
+  "#[field] all options": {
+    "prefix": ["field-all", "#[field"],
+    "body": "#[field(${1|default,min,max,format,pattern,rename,docs|} = ${2:value})]",
+    "description": "Field attribute with option picker"
+  },
+
+  // ============================================================================
+  // RESPONSE MACROS
+  // ============================================================================
+  "ok!": {
+    "prefix": ["ok", "ok!"],
+    "body": [
+      "ok!({",
+      "    \"${1:key}\": ${2:value}",
+      "})"
+    ],
+    "description": "Return 200 OK with JSON body"
+  },
+  "ok! simple": {
+    "prefix": ["ok-simple"],
+    "body": "ok!({ \"${1:message}\": \"${2:success}\" })",
+    "description": "Return 200 OK with simple message"
+  },
+  "error!": {
+    "prefix": ["error", "error!"],
+    "body": [
+      "error! {",
+      "    status: status::${1|BAD_REQUEST,NOT_FOUND,CONFLICT,FORBIDDEN,UNAUTHORIZED,UNPROCESSABLE_ENTITY,INTERNAL_SERVER_ERROR|},",
+      "    title: \"${2:Error Title}\",",
+      "    detail: \"${3:Error description}\"",
+      "}"
+    ],
+    "description": "Return RFC 7807 error response"
+  },
+  "created!": {
+    "prefix": ["created", "created!"],
+    "body": [
+      "created!(\"${1:/resource/id}\", {",
+      "    \"${2:id}\": ${3:id}",
+      "})"
+    ],
+    "description": "Return 201 Created with Location header"
+  },
+  "no_content!": {
+    "prefix": ["no_content", "no-content", "no_content!"],
+    "body": "no_content!()",
+    "description": "Return 204 No Content"
+  },
+  "accepted!": {
+    "prefix": ["accepted", "accepted!"],
+    "body": "accepted!()",
+    "description": "Return 202 Accepted"
+  },
+  "redirect!": {
+    "prefix": ["redirect", "redirect!"],
+    "body": "redirect!(\"${1:/new-path}\")",
+    "description": "Return 302 redirect"
+  },
+  "not_found!": {
+    "prefix": ["not_found", "not-found", "not_found!"],
+    "body": "not_found!(\"${1:Resource not found}\")",
+    "description": "Return 404 Not Found"
+  },
+  "bad_request!": {
+    "prefix": ["bad_request", "bad-request", "bad_request!"],
+    "body": "bad_request!(\"${1:Invalid input}\")",
+    "description": "Return 400 Bad Request"
+  },
+  "conflict!": {
+    "prefix": ["conflict", "conflict!"],
+    "body": "conflict!(\"${1:Resource already exists}\")",
+    "description": "Return 409 Conflict"
+  },
+  "forbidden!": {
+    "prefix": ["forbidden", "forbidden!"],
+    "body": "forbidden!(\"${1:Access denied}\")",
+    "description": "Return 403 Forbidden"
+  },
+
+  // ============================================================================
+  // DX MACROS
+  // ============================================================================
+  "guard!": {
+    "prefix": ["guard", "guard!"],
+    "body": "guard!(${1:condition}, ${2|400,401,403,404,422|}, \"${3:Error message}\");",
+    "description": "Early return if condition is false"
+  },
+  "ensure!": {
+    "prefix": ["ensure", "ensure!"],
+    "body": "let ${1:value} = ensure!(${2:expr}, ${3|400,404,422,500|}, \"${4:Error message}\");",
+    "description": "Unwrap Option/Result or return error"
+  },
+  "ensure! parse": {
+    "prefix": ["ensure-parse"],
+    "body": "let ${1:id} = ensure!(${2:value}.parse::<${3:i64}>(), 400, \"${4:Invalid ID}\");",
+    "description": "Parse value or return 400"
+  },
+
+  // ============================================================================
+  // HTTP CLIENT
+  // ============================================================================
+  "fetch! GET": {
+    "prefix": ["fetch-get", "fetch"],
+    "body": [
+      "let response = fetch!(GET \"${1:https://api.example.com/endpoint}\")",
+      "    .send()?;"
+    ],
+    "description": "HTTP GET request"
+  },
+  "fetch! POST": {
+    "prefix": ["fetch-post"],
+    "body": [
+      "let response = fetch!(POST \"${1:https://api.example.com/endpoint}\", json: {",
+      "    \"${2:key}\": ${3:value}",
+      "}).send()?;"
+    ],
+    "description": "HTTP POST with JSON body"
+  },
+  "fetch! with headers": {
+    "prefix": ["fetch-headers"],
+    "body": [
+      "let response = fetch!(${1|GET,POST,PUT,DELETE|} \"${2:url}\",",
+      "    headers: {",
+      "        \"Authorization\": format!(\"Bearer {}\", ${3:token})",
+      "    }",
+      ").send()?;"
+    ],
+    "description": "HTTP request with headers"
+  },
+  "fetch! with timeout": {
+    "prefix": ["fetch-timeout"],
+    "body": [
+      "let response = fetch!(${1|GET,POST,PUT,DELETE|} \"${2:url}\",",
+      "    timeout: ${3:5000}",
+      ").send()?;"
+    ],
+    "description": "HTTP request with timeout"
+  },
+  "fetch! SSRF protected": {
+    "prefix": ["fetch-ssrf"],
+    "body": [
+      "let response = fetch!(GET &${1:user_url})",
+      "    .deny_private_ips()",
+      "    .send()?;"
+    ],
+    "description": "HTTP request with SSRF protection"
+  },
+
+  // ============================================================================
+  // SQL MACROS
+  // ============================================================================
+  "sql_read!": {
+    "prefix": ["sql_read", "sql-read", "select"],
+    "body": [
+      "let (sql, params) = sql_read!(${1:table} {",
+      "    select: [${2:id, name}],",
+      "    filter: { ${3:active: true} },",
+      "    order: ${4:name},",
+      "    limit: ${5:10},",
+      "});"
+    ],
+    "description": "SQL SELECT query"
+  },
+  "sql_read! with pagination": {
+    "prefix": ["sql_read-page", "sql-read-page"],
+    "body": [
+      "let (sql, params) = sql_read!(${1:table} {",
+      "    select: [${2:id, name, created_at}],",
+      "    filter: { ${3:active: true} },",
+      "    order: [-created_at, id],",
+      "    page: query.page,",
+      "    limit: query.limit,",
+      "});"
+    ],
+    "description": "SQL SELECT with offset pagination"
+  },
+  "sql_read! with cursor": {
+    "prefix": ["sql_read-cursor", "sql-read-cursor"],
+    "body": [
+      "let (sql, params) = sql_read!(${1:table} {",
+      "    select: [${2:id, name, created_at}],",
+      "    filter: { ${3:active: true} },",
+      "    order: [-created_at, -id],",
+      "    after: query.after.as_deref(),",
+      "    limit: query.limit,",
+      "});"
+    ],
+    "description": "SQL SELECT with cursor pagination"
+  },
+  "sql_read! with merge (runtime filter)": {
+    "prefix": ["sql_read-merge", "sql-read-merge", "sql-search"],
+    "body": [
+      "let body = ensure!(req.text(), 400, \"Filter body required\");",
+      "let filter = ensure!(parse_filter(body), 400, \"Invalid filter\");",
+      "",
+      "let (sql, params) = ensure!(sql_read!(${1:table} {",
+      "    select: [${2:id, name, email}],",
+      "    filter: { ${3:active: true} },",
+      "    merge: filter,",
+      "    allow: [${4:name, email, status}],",
+      "    deny_ops: [$$like, $$ilike],",
+      "    order: ${5:name},",
+      "    page: query.page,",
+      "    limit: query.limit,",
+      "}), 400, \"Invalid filter field\");"
+    ],
+    "description": "SQL SELECT with runtime filter parsing"
+  },
+  "sql_create!": {
+    "prefix": ["sql_create", "sql-create", "insert"],
+    "body": [
+      "let (sql, params) = sql_create!(${1:table} {",
+      "    ${2:name}: str(&body.${2:name}),",
+      "    ${3:email}: str(&body.${3:email}),",
+      "    returning: [id, created_at],",
+      "});"
+    ],
+    "description": "SQL INSERT query"
+  },
+  "sql_update!": {
+    "prefix": ["sql_update", "sql-update", "update"],
+    "body": [
+      "let (sql, params) = sql_update!(${1:table} {",
+      "    set: {",
+      "        ${2:name}: str(&body.${2:name}),",
+      "    },",
+      "    filter: { id: int(${3:id}) },",
+      "    returning: [id, updated_at],",
+      "});"
+    ],
+    "description": "SQL UPDATE query"
+  },
+  "sql_delete!": {
+    "prefix": ["sql_delete", "sql-delete", "delete"],
+    "body": [
+      "let (sql, params) = sql_delete!(${1:table} {",
+      "    filter: { id: int(${2:id}) },",
+      "});"
+    ],
+    "description": "SQL DELETE query"
+  },
+  "sql filter operators": {
+    "prefix": ["sql-filter", "filter-op"],
+    "body": "${1:field}: { $$${2|eq,ne,gt,gte,lt,lte,in,nin,like,ilike,starts_with,ends_with,contains,between|}: ${3:value} }",
+    "description": "SQL filter with operator"
+  },
+  "sql $or": {
+    "prefix": ["sql-or", "$or"],
+    "body": [
+      "$$or: [",
+      "    { ${1:field1}: ${2:value1} },",
+      "    { ${3:field2}: ${4:value2} }",
+      "]"
+    ],
+    "description": "SQL OR condition"
+  },
+  "sql $and": {
+    "prefix": ["sql-and", "$and"],
+    "body": [
+      "$$and: [",
+      "    { ${1:field1}: ${2:value1} },",
+      "    { ${3:field2}: ${4:value2} }",
+      "]"
+    ],
+    "description": "SQL AND condition (explicit)"
+  },
+  "sql $not": {
+    "prefix": ["sql-not", "$not"],
+    "body": "$$not: { ${1:field}: ${2:value} }",
+    "description": "SQL NOT condition"
+  },
+
+  // ============================================================================
+  // JSON
+  // ============================================================================
+  "json!": {
+    "prefix": ["json", "json!"],
+    "body": [
+      "json!({",
+      "    \"${1:key}\": ${2:value}",
+      "})"
+    ],
+    "description": "Build JSON value"
+  },
+  "json::obj()": {
+    "prefix": ["json-obj"],
+    "body": [
+      "json::obj()",
+      "    .set(\"${1:key}\", json::${2|str,int,float,bool|}(${3:value}))"
+    ],
+    "description": "Build JSON object with builder"
+  },
+
+  // ============================================================================
+  // LOGGING
+  // ============================================================================
+  "log!": {
+    "prefix": ["log", "log!"],
+    "body": "log!(${1|info,warn,error,debug|}, \"${2:message}\", ${3:key}: ${4:value});",
+    "description": "Structured log with fields"
+  },
+  "log::info!": {
+    "prefix": ["log-info"],
+    "body": "log::info!(\"${1:message}\");",
+    "description": "Info log"
+  },
+  "log::error!": {
+    "prefix": ["log-error"],
+    "body": "log::error!(\"${1:message}\");",
+    "description": "Error log"
+  },
+  "log::debug!": {
+    "prefix": ["log-debug"],
+    "body": "log::debug!(\"${1:message}\");",
+    "description": "Debug log (compiled out in release)"
+  },
+
+  // ============================================================================
+  // UTILITIES
+  // ============================================================================
+  "ids!": {
+    "prefix": ["ids", "ids!"],
+    "body": "let ${1:ids} = ids!(${2:items}, ${3:id});",
+    "description": "Extract field values for batched loading"
+  },
+  "Cursor::new()": {
+    "prefix": ["cursor", "cursor-new"],
+    "body": [
+      "Cursor::new()",
+      "    .${1|string,int|}(\"${2:field}\", ${3:value})",
+      "    .encode()"
+    ],
+    "description": "Build cursor for pagination"
+  },
+  "PageInfo::new()": {
+    "prefix": ["pageinfo", "page-info"],
+    "body": [
+      "PageInfo::new(${1:items}.len(), ${2:limit})",
+      "    .with_next_cursor(${3:next_cursor})",
+      "    .with_has_prev(${4:has_prev})"
+    ],
+    "description": "Build page info for cursor pagination"
+  },
+
+  // ============================================================================
+  // BOILERPLATE
+  // ============================================================================
+  "mik-sdk handler file": {
+    "prefix": ["mik-handler", "wasm-handler"],
+    "body": [
+      "#[allow(warnings)]",
+      "mod bindings;",
+      "",
+      "use bindings::exports::mik::core::handler::{self, Guest, Response};",
+      "use mik_sdk::prelude::*;",
+      "",
+      "// Types",
+      "",
+      "#[derive(Type)]",
+      "pub struct ${1:Item} {",
+      "    pub id: String,",
+      "    pub name: String,",
+      "}",
+      "",
+      "#[derive(Query)]",
+      "pub struct ListQuery {",
+      "    #[field(default = 1)]",
+      "    pub page: u32,",
+      "    #[field(default = 20, max = 100)]",
+      "    pub limit: u32,",
+      "}",
+      "",
+      "// Routes",
+      "",
+      "routes! {",
+      "    GET \"/\" => index,",
+      "    GET \"/${2:items}\" => list(query: ListQuery) -> Vec<${1:Item}>,",
+      "}",
+      "",
+      "// Handlers",
+      "",
+      "fn index(_req: &Request) -> Response {",
+      "    ok!({ \"status\": \"ok\" })",
+      "}",
+      "",
+      "fn list(query: ListQuery, _req: &Request) -> Response {",
+      "    ok!({",
+      "        \"items\": [],",
+      "        \"page\": query.page,",
+      "        \"limit\": query.limit",
+      "    })",
+      "}"
+    ],
+    "description": "Complete mik-sdk handler file template"
+  },
+  "Request helpers": {
+    "prefix": ["req-helpers"],
+    "body": [
+      "// Request helpers:",
+      "// req.param(\"id\")           - path parameter",
+      "// req.query(\"page\")         - query parameter",
+      "// req.header(\"auth\")        - header value",
+      "// req.body()                - raw bytes",
+      "// req.text()                - body as UTF-8",
+      "// req.json()                - parse as JSON",
+      "// req.is_json()             - check Content-Type",
+      "// req.form(\"field\")         - form field value"
+    ],
+    "description": "Request helper methods reference"
+  }
+}

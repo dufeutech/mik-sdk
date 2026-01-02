@@ -8,8 +8,8 @@ target/
 *.wasm
 
 # IDE
-.vscode/
 .idea/
+# Note: .vscode/ is tracked for shared snippets and settings
 
 # OS
 .DS_Store
