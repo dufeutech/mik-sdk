@@ -744,3 +744,108 @@ fn test_crud_api_list_posts_cursor_pagination() {
         assert!(json["next_cursor"].is_string() || json["next_cursor"].is_null());
     });
 }
+
+// =============================================================================
+// CRUD API - Search Endpoint (Runtime Filter Parsing)
+// =============================================================================
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_search_users() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test POST /users/search with Mongo-style filter
+        let response = ureq::post(&format!("{}/users/search", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "name": {"$starts_with": "A"},
+                "status": "active"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert!(json["users"].is_array());
+        assert!(json["page"].is_number());
+        assert!(json["limit"].is_number());
+        // Check SQL was generated with merged filter
+        assert!(json["_debug"]["sql"].as_str().unwrap().contains("WHERE"));
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_search_users_with_pagination() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test search with query params for pagination
+        let response = ureq::post(&format!("{}/users/search?page=2&limit=10", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "status": "active"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["page"], 2);
+        assert_eq!(json["limit"], 10);
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_search_users_empty_filter() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test search with empty filter body - should return 400
+        let response = ureq::post(&format!("{}/users/search", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_string("");
+
+        match response {
+            Ok(_) => panic!("Expected 400"),
+            Err(ureq::Error::Status(code, _)) => {
+                assert_eq!(code, 400);
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_search_users_invalid_filter() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test search with invalid JSON filter
+        let response = ureq::post(&format!("{}/users/search", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_string("not valid json");
+
+        match response {
+            Ok(_) => panic!("Expected 400"),
+            Err(ureq::Error::Status(code, _)) => {
+                assert_eq!(code, 400);
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_search_users_disallowed_field() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test search with field not in allow list - should return 400
+        let response = ureq::post(&format!("{}/users/search", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "password": "secret"
+            }));
+
+        match response {
+            Ok(_) => panic!("Expected 400"),
+            Err(ureq::Error::Status(code, _)) => {
+                assert_eq!(code, 400);
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
