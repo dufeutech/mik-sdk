@@ -66,7 +66,7 @@ fn home(_req: &Request) -> Response {
     ok!({
         "message": "Welcome to mik-sdk!",
         "version": "0.1.0",
-        "endpoints": ["/", "/hello/{name}", "/echo", "/search", "/__schema"]
+        "endpoints": ["/", "/hello/{name}", "/echo", "/search"]
     })
 }
 
