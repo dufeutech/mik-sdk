@@ -32,11 +32,15 @@ git init
 # 4. Run locally
 wasmtime serve -S cli=y service.wasm
 
-# 5. Push to GitHub - workflow runs automatically
+# 5. Push to GitHub
 git add .
 git commit -m "Initial commit"
 git remote add origin git@github.com:your-org/my-api.git
 git push -u origin main
+
+# 6. Deploy (tag or manual trigger)
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 ## What the Workflow Does

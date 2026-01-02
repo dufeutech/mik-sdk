@@ -1,16 +1,15 @@
-# Example GitHub Actions workflow for deploying mik-sdk handlers
-# Copy this to your project's .github/workflows/deploy.yml
+# GitHub Actions workflow for deploying mik-sdk handlers
 #
 # Publishes to: ghcr.io/{owner}/{repo}:{version}
 # Artifacts: service.wasm, openapi.json
 #
-# Trigger: Push to main, or manual with version override
+# Trigger: Manual dispatch or version tags (v*)
 
 name: Deploy
 
 on:
   push:
-    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
