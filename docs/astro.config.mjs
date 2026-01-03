@@ -47,6 +47,7 @@ export default defineConfig({
             { label: "Installation", slug: "guides/installation" },
             { label: "Quickstart", slug: "guides/quickstart" },
             { label: "Routing", slug: "guides/routing" },
+            { label: "OpenAPI Schema", slug: "guides/openapi" },
             { label: "Testing", slug: "guides/testing" },
             { label: "Sidecars Services", slug: "guides/sidecars" },
             { label: "Troubleshooting", slug: "guides/troubleshooting" },
