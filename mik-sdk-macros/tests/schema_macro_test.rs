@@ -51,6 +51,13 @@ mod mik_sdk {
                     message: format!("Expected {expected} for field '{field}'"),
                 }
             }
+
+            pub fn custom(field: &str, message: String) -> Self {
+                Self {
+                    field: field.to_string(),
+                    message,
+                }
+            }
         }
 
         #[derive(Debug, Clone)]
@@ -302,6 +309,16 @@ mod mik_sdk {
                     _ => None,
                 }
             }
+        }
+
+        /// Create a JSON string value (for enum `ToJson` impl)
+        pub fn str(s: &str) -> JsonValue {
+            JsonValue::from_str(s)
+        }
+
+        /// Trait for converting to JSON (used by enum derive)
+        pub trait ToJson {
+            fn to_json(&self) -> JsonValue;
         }
     }
 }
@@ -1408,4 +1425,832 @@ fn test_query_bool_default() {
     let params = vec![("enabled".to_string(), "false".to_string())];
     let query = <BoolDefaultQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
     assert!(!query.enabled);
+}
+
+// =============================================================================
+// OPENAPI SCHEMA FULL PROPERTY TESTS
+// =============================================================================
+// These tests verify that derived types generate proper OpenAPI schemas with
+// full type information (not just placeholders).
+
+#[test]
+fn test_type_openapi_schema_has_full_properties() {
+    #[derive(Type)]
+    struct User {
+        id: String,
+        name: String,
+        age: i32,
+        active: bool,
+        score: f64,
+    }
+
+    let schema = <User as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Verify it's a proper object schema
+    assert!(
+        schema.contains("\"type\":\"object\""),
+        "Should be object type"
+    );
+    assert!(schema.contains("\"properties\""), "Should have properties");
+
+    // Verify each field has proper type
+    assert!(
+        schema.contains("\"id\":{\"type\":\"string\"}"),
+        "id should be string type"
+    );
+    assert!(
+        schema.contains("\"name\":{\"type\":\"string\"}"),
+        "name should be string type"
+    );
+    assert!(
+        schema.contains("\"age\":{\"type\":\"integer\"}"),
+        "age should be integer type"
+    );
+    assert!(
+        schema.contains("\"active\":{\"type\":\"boolean\"}"),
+        "active should be boolean type"
+    );
+    assert!(
+        schema.contains("\"score\":{\"type\":\"number\"}"),
+        "score should be number type"
+    );
+
+    // Verify required fields
+    assert!(
+        schema.contains("\"required\""),
+        "Should have required array"
+    );
+}
+
+#[test]
+fn test_query_openapi_schema_has_full_properties() {
+    #[derive(Query)]
+    struct PaginationQuery {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 20)]
+        limit: u32,
+        search: Option<String>,
+        active: Option<bool>,
+    }
+
+    let schema = <PaginationQuery as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Verify it's a proper object schema
+    assert!(
+        schema.contains("\"type\":\"object\""),
+        "Should be object type"
+    );
+    assert!(schema.contains("\"properties\""), "Should have properties");
+
+    // Verify each field exists with proper type
+    assert!(
+        schema.contains("\"page\":{\"type\":\"integer\"}"),
+        "page should be integer type"
+    );
+    assert!(
+        schema.contains("\"limit\":{\"type\":\"integer\"}"),
+        "limit should be integer type"
+    );
+    assert!(schema.contains("\"search\""), "search should be present");
+    assert!(schema.contains("\"active\""), "active should be present");
+}
+
+#[test]
+fn test_path_openapi_schema_has_full_properties() {
+    #[derive(Path)]
+    struct ResourcePath {
+        org_id: String,
+        user_id: String,
+    }
+
+    let schema = <ResourcePath as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Verify it's a proper object schema
+    assert!(
+        schema.contains("\"type\":\"object\""),
+        "Should be object type"
+    );
+    assert!(schema.contains("\"properties\""), "Should have properties");
+
+    // Verify each field has string type (path params are always strings)
+    assert!(
+        schema.contains("\"org_id\":{\"type\":\"string\"}"),
+        "org_id should be string type"
+    );
+    assert!(
+        schema.contains("\"user_id\":{\"type\":\"string\"}"),
+        "user_id should be string type"
+    );
+
+    // Verify required fields (all path params should be required)
+    assert!(
+        schema.contains("\"required\""),
+        "Should have required array"
+    );
+    assert!(
+        schema.contains("\"org_id\"") && schema.contains("\"user_id\""),
+        "Both fields should be in schema"
+    );
+}
+
+#[test]
+fn test_type_openapi_schema_with_validation_constraints() {
+    #[derive(Type)]
+    struct ConstrainedInput {
+        #[field(min = 1, max = 100)]
+        name: String,
+        #[field(min = 0, max = 150)]
+        age: i32,
+        #[field(format = "email")]
+        email: String,
+    }
+
+    let schema = <ConstrainedInput as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Verify constraints are in the schema
+    assert!(
+        schema.contains("\"minLength\":1"),
+        "name should have minLength constraint"
+    );
+    assert!(
+        schema.contains("\"maxLength\":100"),
+        "name should have maxLength constraint"
+    );
+    assert!(
+        schema.contains("\"minimum\":0"),
+        "age should have minimum constraint"
+    );
+    assert!(
+        schema.contains("\"maximum\":150"),
+        "age should have maximum constraint"
+    );
+    assert!(
+        schema.contains("\"format\":\"email\""),
+        "email should have format constraint"
+    );
+}
+
+#[test]
+fn test_type_openapi_schema_with_optional_fields() {
+    #[derive(Type)]
+    struct PartialUpdate {
+        name: Option<String>,
+        email: Option<String>,
+    }
+
+    let schema = <PartialUpdate as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Optional fields should be marked as nullable
+    assert!(
+        schema.contains("\"nullable\":true"),
+        "Optional fields should be nullable"
+    );
+
+    // Should NOT have required array (or it should be empty) since all fields are optional
+    // Note: Implementation may vary - just check the fields exist
+    assert!(schema.contains("\"name\""), "name field should exist");
+    assert!(schema.contains("\"email\""), "email field should exist");
+}
+
+#[test]
+fn test_type_openapi_schema_with_array_fields() {
+    #[derive(Type)]
+    struct ArrayContainer {
+        tags: Vec<String>,
+        scores: Vec<i32>,
+    }
+
+    let schema = <ArrayContainer as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Array fields should have array type with items
+    assert!(
+        schema.contains("\"type\":\"array\""),
+        "Should have array type for Vec fields"
+    );
+    assert!(
+        schema.contains("\"items\""),
+        "Array fields should have items schema"
+    );
+}
+
+// =============================================================================
+// COMPREHENSIVE FIELD CONFIGURATION TESTS
+// =============================================================================
+// These tests verify all #[field(...)] configurations are reflected in OpenAPI.
+
+#[test]
+fn test_type_openapi_all_field_configs() {
+    #[derive(Type)]
+    struct FullyConfiguredType {
+        #[field(min = 1, max = 100, format = "email", docs = "User email address")]
+        email: String,
+        #[field(min = 0, max = 150)]
+        age: i32,
+        #[field(pattern = r"^[a-z0-9_]+$")]
+        username: String,
+        #[field(format = "uuid")]
+        id: String,
+        #[field(format = "date-time")]
+        created_at: String,
+        #[field(min = 0, max = 5)]
+        tags: Vec<String>,
+    }
+
+    let schema = <FullyConfiguredType as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Type schema: {schema}");
+
+    // Email field - string constraints
+    assert!(
+        schema.contains("\"minLength\":1"),
+        "email should have minLength"
+    );
+    assert!(
+        schema.contains("\"maxLength\":100"),
+        "email should have maxLength"
+    );
+    assert!(
+        schema.contains("\"format\":\"email\""),
+        "email should have format"
+    );
+    assert!(
+        schema.contains("\"description\":\"User email address\""),
+        "email should have docs"
+    );
+
+    // Age field - integer constraints
+    assert!(schema.contains("\"minimum\":0"), "age should have minimum");
+    assert!(
+        schema.contains("\"maximum\":150"),
+        "age should have maximum"
+    );
+
+    // Username field - pattern
+    assert!(
+        schema.contains("\"pattern\":"),
+        "username should have pattern"
+    );
+
+    // ID field - uuid format
+    assert!(
+        schema.contains("\"format\":\"uuid\""),
+        "id should have uuid format"
+    );
+
+    // Created at - date-time format
+    assert!(
+        schema.contains("\"format\":\"date-time\""),
+        "created_at should have date-time format"
+    );
+
+    // Tags array - array constraints
+    assert!(
+        schema.contains("\"minItems\":0"),
+        "tags should have minItems"
+    );
+    assert!(
+        schema.contains("\"maxItems\":5"),
+        "tags should have maxItems"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_rename() {
+    #[derive(Type)]
+    struct RenamedFields {
+        #[field(rename = "firstName")]
+        first_name: String,
+        #[field(rename = "lastName")]
+        last_name: String,
+    }
+
+    let schema = <RenamedFields as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Renamed schema: {schema}");
+
+    // Should use renamed JSON keys in schema
+    assert!(
+        schema.contains("\"firstName\""),
+        "Should use renamed key firstName"
+    );
+    assert!(
+        schema.contains("\"lastName\""),
+        "Should use renamed key lastName"
+    );
+    // Should NOT use Rust field names
+    assert!(
+        !schema.contains("\"first_name\""),
+        "Should not use rust field name"
+    );
+    assert!(
+        !schema.contains("\"last_name\""),
+        "Should not use rust field name"
+    );
+}
+
+#[test]
+fn test_query_openapi_all_field_configs() {
+    #[derive(Query)]
+    struct FullyConfiguredQuery {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 20, max = 100)]
+        limit: u32,
+        search: Option<String>,
+        #[field(default = true)]
+        active: bool,
+        sort_by: Option<String>,
+    }
+
+    let schema = <FullyConfiguredQuery as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Query schema: {schema}");
+
+    // Verify all fields present
+    assert!(schema.contains("\"page\""), "Should have page field");
+    assert!(schema.contains("\"limit\""), "Should have limit field");
+    assert!(schema.contains("\"search\""), "Should have search field");
+    assert!(schema.contains("\"active\""), "Should have active field");
+    assert!(schema.contains("\"sort_by\""), "Should have sort_by field");
+
+    // Verify types
+    assert!(
+        schema.contains("\"type\":\"integer\""),
+        "Should have integer types for page/limit"
+    );
+    assert!(
+        schema.contains("\"type\":\"boolean\""),
+        "Should have boolean type for active"
+    );
+    assert!(
+        schema.contains("\"type\":\"string\""),
+        "Should have string type for search/sort_by"
+    );
+}
+
+#[test]
+fn test_query_openapi_query_params() {
+    #[derive(Query)]
+    struct SearchParams {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 10)]
+        per_page: u32,
+        q: Option<String>,
+        status: Option<String>,
+    }
+
+    let params = <SearchParams as mik_sdk::typed::OpenApiSchema>::openapi_query_params();
+    println!("Query params: {params}");
+
+    // Should list all fields as query parameters
+    assert!(params.contains("\"page\""), "Should have page param");
+    assert!(
+        params.contains("\"per_page\""),
+        "Should have per_page param"
+    );
+    assert!(params.contains("\"q\""), "Should have q param");
+    assert!(params.contains("\"status\""), "Should have status param");
+}
+
+#[test]
+#[allow(clippy::struct_field_names)]
+fn test_path_openapi_all_field_configs() {
+    #[derive(Path)]
+    struct MultiSegmentPath {
+        organization_id: String,
+        team_id: String,
+        user_id: String,
+    }
+
+    let schema = <MultiSegmentPath as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Path schema: {schema}");
+
+    // All path params should be strings and required
+    assert!(
+        schema.contains("\"organization_id\""),
+        "Should have organization_id"
+    );
+    assert!(schema.contains("\"team_id\""), "Should have team_id");
+    assert!(schema.contains("\"user_id\""), "Should have user_id");
+    assert!(
+        schema.contains("\"type\":\"string\""),
+        "All path params should be string"
+    );
+    assert!(
+        schema.contains("\"required\""),
+        "Path params should have required array"
+    );
+}
+
+#[test]
+fn test_type_openapi_nested_type_reference() {
+    #[derive(Type)]
+    struct Address {
+        street: String,
+        city: String,
+        zip: String,
+    }
+
+    #[derive(Type)]
+    struct Person {
+        name: String,
+        address: Address,
+    }
+
+    let person_schema = <Person as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let address_schema = <Address as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    println!("Person schema: {person_schema}");
+    println!("Address schema: {address_schema}");
+
+    // Person should reference Address type
+    assert!(
+        person_schema.contains("\"name\""),
+        "Person should have name"
+    );
+    assert!(
+        person_schema.contains("\"address\""),
+        "Person should have address"
+    );
+
+    // Address should have all its fields
+    assert!(
+        address_schema.contains("\"street\""),
+        "Address should have street"
+    );
+    assert!(
+        address_schema.contains("\"city\""),
+        "Address should have city"
+    );
+    assert!(
+        address_schema.contains("\"zip\""),
+        "Address should have zip"
+    );
+}
+
+#[test]
+#[allow(clippy::struct_field_names)]
+fn test_type_openapi_with_all_primitive_types() {
+    #[derive(Type)]
+    struct AllPrimitives {
+        string_field: String,
+        i32_field: i32,
+        i64_field: i64,
+        u32_field: u32,
+        u64_field: u64,
+        f64_field: f64,
+        bool_field: bool,
+    }
+
+    let schema = <AllPrimitives as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("All primitives schema: {schema}");
+
+    // Check all field types are correctly mapped
+    assert!(
+        schema.contains("\"string_field\":{\"type\":\"string\"}"),
+        "String should map to string"
+    );
+    assert!(
+        schema.contains("\"i32_field\":{\"type\":\"integer\"}"),
+        "i32 should map to integer"
+    );
+    assert!(
+        schema.contains("\"i64_field\":{\"type\":\"integer\"}"),
+        "i64 should map to integer"
+    );
+    assert!(
+        schema.contains("\"u32_field\":{\"type\":\"integer\"}"),
+        "u32 should map to integer"
+    );
+    assert!(
+        schema.contains("\"u64_field\":{\"type\":\"integer\"}"),
+        "u64 should map to integer"
+    );
+    assert!(
+        schema.contains("\"f64_field\":{\"type\":\"number\"}"),
+        "f64 should map to number"
+    );
+    assert!(
+        schema.contains("\"bool_field\":{\"type\":\"boolean\"}"),
+        "bool should map to boolean"
+    );
+
+    // All should be required
+    assert!(
+        schema.contains("\"required\""),
+        "Should have required array"
+    );
+}
+
+#[test]
+fn test_body_type_openapi_for_create_input() {
+    // Simulates a typical POST body for creating a resource
+    #[derive(Type)]
+    struct CreateUserInput {
+        #[field(min = 1, max = 100)]
+        name: String,
+        #[field(format = "email")]
+        email: String,
+        #[field(min = 8, max = 128)]
+        password: String,
+        role: Option<String>,
+    }
+
+    let schema = <CreateUserInput as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("CreateUserInput schema: {schema}");
+
+    // Required fields
+    assert!(schema.contains("\"name\""), "Should have name");
+    assert!(schema.contains("\"email\""), "Should have email");
+    assert!(schema.contains("\"password\""), "Should have password");
+    assert!(schema.contains("\"role\""), "Should have role");
+
+    // Constraints
+    assert!(
+        schema.contains("\"minLength\":1"),
+        "name should have minLength"
+    );
+    assert!(
+        schema.contains("\"maxLength\":100"),
+        "name should have maxLength"
+    );
+    assert!(
+        schema.contains("\"format\":\"email\""),
+        "email should have format"
+    );
+    assert!(
+        schema.contains("\"minLength\":8"),
+        "password should have minLength"
+    );
+
+    // Optional field marked as nullable
+    assert!(
+        schema.contains("\"nullable\":true"),
+        "Optional role should be nullable"
+    );
+
+    // Required array should NOT include optional field
+    let schema_name = <CreateUserInput as mik_sdk::typed::OpenApiSchema>::schema_name();
+    assert_eq!(schema_name, "CreateUserInput");
+}
+
+#[test]
+fn test_body_type_openapi_for_update_input() {
+    // Simulates a typical PATCH/PUT body for updating a resource
+    #[derive(Type)]
+    struct UpdateUserInput {
+        name: Option<String>,
+        email: Option<String>,
+        bio: Option<String>,
+    }
+
+    let schema = <UpdateUserInput as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("UpdateUserInput schema: {schema}");
+
+    // All fields should be nullable (optional)
+    assert!(
+        schema.contains("\"nullable\":true"),
+        "All fields should be nullable"
+    );
+
+    // Should have all fields
+    assert!(schema.contains("\"name\""), "Should have name");
+    assert!(schema.contains("\"email\""), "Should have email");
+    assert!(schema.contains("\"bio\""), "Should have bio");
+}
+
+// =============================================================================
+// ENUM OPENAPI SCHEMA TESTS
+// =============================================================================
+
+#[test]
+fn test_enum_openapi_schema_basic() {
+    #[derive(Type)]
+    enum Status {
+        Active,
+        Inactive,
+        Pending,
+    }
+
+    let schema = <Status as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Status enum schema: {schema}");
+
+    // Should be a string type with enum values
+    assert!(
+        schema.contains("\"type\":\"string\""),
+        "Enum should be string type"
+    );
+    assert!(schema.contains("\"enum\""), "Should have enum array");
+
+    // Should have all variant values (snake_case by default)
+    assert!(schema.contains("\"active\""), "Should have active variant");
+    assert!(
+        schema.contains("\"inactive\""),
+        "Should have inactive variant"
+    );
+    assert!(
+        schema.contains("\"pending\""),
+        "Should have pending variant"
+    );
+}
+
+#[test]
+fn test_enum_openapi_schema_name() {
+    #[derive(Type)]
+    enum UserRole {
+        Admin,
+        User,
+        Guest,
+    }
+
+    let name = <UserRole as mik_sdk::typed::OpenApiSchema>::schema_name();
+    assert_eq!(name, "UserRole");
+
+    let schema = <UserRole as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("UserRole enum schema: {schema}");
+
+    // Variants should be snake_case
+    assert!(schema.contains("\"admin\""), "Should have admin");
+    assert!(schema.contains("\"user\""), "Should have user");
+    assert!(schema.contains("\"guest\""), "Should have guest");
+}
+
+#[test]
+fn test_enum_openapi_schema_with_rename() {
+    #[derive(Type)]
+    enum Priority {
+        #[field(rename = "LOW")]
+        Low,
+        #[field(rename = "MEDIUM")]
+        Medium,
+        #[field(rename = "HIGH")]
+        High,
+        #[field(rename = "CRITICAL")]
+        Critical,
+    }
+
+    let schema = <Priority as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Priority enum schema: {schema}");
+
+    // Should use renamed values
+    assert!(schema.contains("\"LOW\""), "Should have LOW");
+    assert!(schema.contains("\"MEDIUM\""), "Should have MEDIUM");
+    assert!(schema.contains("\"HIGH\""), "Should have HIGH");
+    assert!(schema.contains("\"CRITICAL\""), "Should have CRITICAL");
+
+    // Should NOT have snake_case defaults
+    assert!(
+        !schema.contains("\"low\""),
+        "Should not have snake_case low"
+    );
+}
+
+#[test]
+fn test_enum_as_struct_field() {
+    #[derive(Type)]
+    enum OrderStatus {
+        Pending,
+        Processing,
+        Shipped,
+        Delivered,
+        Cancelled,
+    }
+
+    #[derive(Type)]
+    struct Order {
+        id: String,
+        status: OrderStatus,
+        total: i32,
+    }
+
+    let order_schema = <Order as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let status_schema = <OrderStatus as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    println!("Order schema: {order_schema}");
+    println!("OrderStatus schema: {status_schema}");
+
+    // Order should have status field
+    assert!(
+        order_schema.contains("\"status\""),
+        "Order should have status field"
+    );
+    assert!(
+        order_schema.contains("\"id\""),
+        "Order should have id field"
+    );
+    assert!(
+        order_schema.contains("\"total\""),
+        "Order should have total field"
+    );
+
+    // OrderStatus should be a string enum
+    assert!(
+        status_schema.contains("\"type\":\"string\""),
+        "Status should be string"
+    );
+    assert!(
+        status_schema.contains("\"enum\""),
+        "Status should have enum"
+    );
+    assert!(status_schema.contains("\"pending\""), "Should have pending");
+    assert!(status_schema.contains("\"shipped\""), "Should have shipped");
+}
+
+#[test]
+fn test_enum_optional_field() {
+    #[derive(Type)]
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    #[derive(Type)]
+    struct Preferences {
+        theme: Option<Color>,
+        name: String,
+    }
+
+    let schema = <Preferences as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("Preferences schema: {schema}");
+
+    // theme should be optional (nullable)
+    assert!(schema.contains("\"theme\""), "Should have theme field");
+    assert!(
+        schema.contains("\"nullable\":true"),
+        "Optional enum should be nullable"
+    );
+    assert!(schema.contains("\"name\""), "Should have name field");
+}
+
+#[test]
+fn test_enum_in_array() {
+    #[derive(Type)]
+    enum Tag {
+        Featured,
+        New,
+        Sale,
+        Popular,
+    }
+
+    #[derive(Type)]
+    struct Product {
+        name: String,
+        tags: Vec<Tag>,
+    }
+
+    let product_schema = <Product as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let tag_schema = <Tag as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    println!("Product schema: {product_schema}");
+    println!("Tag schema: {tag_schema}");
+
+    // Product should have tags as array
+    assert!(
+        product_schema.contains("\"tags\""),
+        "Should have tags field"
+    );
+    assert!(
+        product_schema.contains("\"type\":\"array\""),
+        "tags should be array"
+    );
+
+    // Tag should be a string enum
+    assert!(
+        tag_schema.contains("\"type\":\"string\""),
+        "Tag should be string"
+    );
+    assert!(tag_schema.contains("\"featured\""), "Should have featured");
+    assert!(tag_schema.contains("\"sale\""), "Should have sale");
+}
+
+#[test]
+fn test_enum_snake_case_conversion() {
+    #[derive(Type)]
+    enum HttpMethod {
+        Get,
+        Post,
+        Put,
+        Patch,
+        Delete,
+        HeadRequest,      // Should become head_request
+        OptionsPreFlight, // Should become options_pre_flight
+    }
+
+    let schema = <HttpMethod as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("HttpMethod enum schema: {schema}");
+
+    // Basic variants
+    assert!(schema.contains("\"get\""), "Should have get");
+    assert!(schema.contains("\"post\""), "Should have post");
+    assert!(schema.contains("\"delete\""), "Should have delete");
+
+    // Multi-word variants should be snake_case
+    assert!(
+        schema.contains("\"head_request\""),
+        "HeadRequest should become head_request"
+    );
+    assert!(
+        schema.contains("\"options_pre_flight\""),
+        "OptionsPreFlight should become options_pre_flight"
+    );
 }

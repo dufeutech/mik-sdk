@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Portable WASI HTTP SDK using Component Composition</strong><br>
-  <span>Write handlers once, run on wasmtime, Spin, wasmCloud, or any WASI-compliant runtime.</span>
+  <span>Write handlers once, run on wasmtime or any HTTP WASI-compliant runtime.</span>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 
 ## Why mik-sdk?
 
-- **Write once, run anywhere** — Your handlers work on wasmtime, Spin, wasmCloud, and any WASI P2 runtime without code changes.
+- **Write once, run anywhere** — Your handlers work on wasmtime and any WASI P2 runtime without code changes.
 - **Type-safe by default** — Path params, query strings, and JSON bodies are parsed and validated at compile time.
 - **Tiny footprint** — Composed components are ~250KB. No bloat, no unnecessary dependencies.
 
@@ -140,7 +140,7 @@ mik-sdk uses a two-component architecture for maximum portability:
 └─────────────────────────────────────────────────────────┘
                           ↓ runs on
 ┌─────────────────────────────────────────────────────────┐
-│  wasmtime · Spin · wasmCloud · any WASI HTTP runtime    │
+│  wasmtime · any WASI HTTP runtime                       │
 └─────────────────────────────────────────────────────────┘
 ```
 

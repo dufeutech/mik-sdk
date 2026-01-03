@@ -149,23 +149,24 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
         let mut base_schema = type_to_openapi(field_ty);
 
         // Add constraints to schema
+        // Note: Check array BEFORE string because array schemas contain "string" in items
         let mut extra_props = Vec::new();
         if let Some(min) = attrs.min {
-            if base_schema.contains("string") {
+            if base_schema.contains("array") {
+                extra_props.push(format!(r#""minItems":{min}"#));
+            } else if base_schema.contains("string") {
                 extra_props.push(format!(r#""minLength":{min}"#));
             } else if base_schema.contains("integer") || base_schema.contains("number") {
                 extra_props.push(format!(r#""minimum":{min}"#));
-            } else if base_schema.contains("array") {
-                extra_props.push(format!(r#""minItems":{min}"#));
             }
         }
         if let Some(max) = attrs.max {
-            if base_schema.contains("string") {
+            if base_schema.contains("array") {
+                extra_props.push(format!(r#""maxItems":{max}"#));
+            } else if base_schema.contains("string") {
                 extra_props.push(format!(r#""maxLength":{max}"#));
             } else if base_schema.contains("integer") || base_schema.contains("number") {
                 extra_props.push(format!(r#""maximum":{max}"#));
-            } else if base_schema.contains("array") {
-                extra_props.push(format!(r#""maxItems":{max}"#));
             }
         }
         if let Some(ref fmt) = attrs.format {

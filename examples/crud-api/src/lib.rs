@@ -508,11 +508,14 @@ fn get_iso_time() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn write_openapi_json() {
-        std::fs::write("openapi.json", OPENAPI_JSON).expect("Failed to write openapi.json");
-        println!("Generated openapi.json ({} bytes)", OPENAPI_JSON.len());
+        // Uses the auto-generated __mik_schema module from routes! macro
+        super::__mik_schema::write_to(std::path::Path::new("openapi.json"))
+            .expect("Failed to write openapi.json");
+        println!(
+            "Generated openapi.json ({} bytes)",
+            super::__mik_schema::json().len()
+        );
     }
 }

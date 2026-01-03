@@ -69,7 +69,7 @@ pub fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> 
         .iter()
         .map(|(ident, json_name)| {
             quote! {
-                Self::#ident => ::mik_sdk::json::str(#json_name),
+                Self::#ident => mik_sdk::json::str(#json_name),
             }
         })
         .collect();
@@ -94,15 +94,15 @@ pub fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> 
     let openapi_schema = format!(r#"{{"type":"string","enum":[{enum_values_json}]}}"#);
 
     let tokens = quote! {
-        impl ::mik_sdk::typed::FromJson for #name {
-            fn from_json(__value: &::mik_sdk::json::JsonValue) -> Result<Self, ::mik_sdk::typed::ParseError> {
+        impl mik_sdk::typed::FromJson for #name {
+            fn from_json(__value: &mik_sdk::json::JsonValue) -> Result<Self, mik_sdk::typed::ParseError> {
                 let __s = __value.str().ok_or_else(|| {
-                    ::mik_sdk::typed::ParseError::type_mismatch("value", "string")
+                    mik_sdk::typed::ParseError::type_mismatch("value", "string")
                 })?;
 
                 match __s.as_str() {
                     #(#from_json_arms)*
-                    __other => Err(::mik_sdk::typed::ParseError::custom(
+                    __other => Err(mik_sdk::typed::ParseError::custom(
                         "value",
                         format!(
                             "unknown enum variant \"{}\". Valid values: {}",
@@ -114,22 +114,22 @@ pub fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> 
             }
         }
 
-        impl ::mik_sdk::json::ToJson for #name {
-            fn to_json(&self) -> ::mik_sdk::json::JsonValue {
+        impl mik_sdk::json::ToJson for #name {
+            fn to_json(&self) -> mik_sdk::json::JsonValue {
                 match self {
                     #(#to_json_arms)*
                 }
             }
         }
 
-        impl ::mik_sdk::typed::Validate for #name {
-            fn validate(&self) -> Result<(), ::mik_sdk::typed::ValidationError> {
+        impl mik_sdk::typed::Validate for #name {
+            fn validate(&self) -> Result<(), mik_sdk::typed::ValidationError> {
                 // Enums are always valid if parsed successfully
                 Ok(())
             }
         }
 
-        impl ::mik_sdk::typed::OpenApiSchema for #name {
+        impl mik_sdk::typed::OpenApiSchema for #name {
             fn openapi_schema() -> &'static str {
                 #openapi_schema
             }

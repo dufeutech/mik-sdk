@@ -1,19 +1,19 @@
 //! OpenAPI specification generation for routes.
 //!
-//! Generates OpenAPI 3.0 specifications as compile-time static strings
-//! to avoid runtime stack overflow issues in WASM environments.
+//! Generates OpenAPI 3.0 specifications with full type schemas.
 //!
-//! Strategy: Everything is computed at macro expansion time and embedded
-//! as a single static string. No runtime computation needed.
+//! Strategy: The paths/parameters are computed at macro expansion time,
+//! but schemas are resolved at runtime by calling the `OpenApiSchema` trait
+//! methods on each type. This allows full schema information to be included.
 
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::quote;
 
 use crate::schema::codegen::extract_param_names;
 use crate::schema::types::{InputSource, RouteDef};
 
 // =============================================================================
-// FULLY STATIC OPENAPI GENERATION
+// OPENAPI GENERATION
 // =============================================================================
 
 /// Generate a static OpenAPI method entry for a route.
@@ -77,11 +77,34 @@ fn generate_method_entry(route: &RouteDef) -> String {
     format!("\"{}\":{{{}}}", method_name, parts.join(","))
 }
 
-/// Generate the complete OpenAPI JSON as a compile-time static string.
-///
-/// This is the main entry point. Everything is computed at macro expansion time.
-pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
-    use std::collections::{HashMap, HashSet};
+/// Collect unique type names from routes for schema generation.
+fn collect_type_names(routes: &[RouteDef]) -> Vec<Ident> {
+    use std::collections::HashSet;
+
+    let mut type_names: Vec<Ident> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    for route in routes {
+        for input in &route.inputs {
+            let name = input.type_name.to_string();
+            if seen.insert(name) {
+                type_names.push(input.type_name.clone());
+            }
+        }
+        if let Some(ref output) = route.output_type {
+            let name = output.to_string();
+            if seen.insert(name) {
+                type_names.push(output.clone());
+            }
+        }
+    }
+
+    type_names
+}
+
+/// Generate the static paths JSON portion of the OpenAPI spec.
+fn generate_paths_json(routes: &[RouteDef]) -> String {
+    use std::collections::HashMap;
 
     // Group routes by path
     let mut paths: HashMap<String, Vec<&RouteDef>> = HashMap::new();
@@ -103,43 +126,45 @@ pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
         })
         .collect();
 
-    let paths_json = path_entries.join(",");
+    path_entries.join(",")
+}
 
-    // Collect unique type names for schema references
-    let mut type_names: Vec<String> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+/// Generate the complete OpenAPI JSON with full type schemas.
+///
+/// The paths/parameters are computed at macro expansion time as static strings.
+/// The schemas are resolved at runtime by calling `OpenApiSchema::openapi_schema()`
+/// on each type, allowing full schema information to be included.
+pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
+    let paths_json = generate_paths_json(routes);
+    let type_names = collect_type_names(routes);
 
-    for route in routes {
-        for input in &route.inputs {
-            let name = input.type_name.to_string();
-            if seen.insert(name.clone()) {
-                type_names.push(name);
-            }
-        }
-        if let Some(ref output) = route.output_type {
-            let name = output.to_string();
-            if seen.insert(name.clone()) {
-                type_names.push(name);
-            }
-        }
-    }
-
-    // Build schema references (just type names pointing to empty objects)
-    // Full schemas would require trait calls, so we provide references only
-    let schema_entries: Vec<String> = type_names
+    // Generate code to build schema entries by calling trait methods
+    // Use super:: prefix because this runs inside __mik_schema module
+    let schema_builders: Vec<TokenStream2> = type_names
         .iter()
-        .map(|name| {
-            format!("\"{name}\":{{\"type\":\"object\",\"description\":\"See type definition\"}}")
+        .map(|type_name| {
+            let type_name_str = type_name.to_string();
+            quote! {
+                schema_parts.push(::std::format!(
+                    "\"{}\":{}",
+                    #type_name_str,
+                    <super::#type_name as mik_sdk::typed::OpenApiSchema>::openapi_schema()
+                ));
+            }
         })
         .collect();
 
-    let schemas_json = schema_entries.join(",");
-
-    // Build the complete static OpenAPI JSON
-    let static_openapi = format!(
-        r#"{{"openapi":"3.0.0","info":{{"title":"API","version":"1.0.0"}},"paths":{{{paths_json}}},"components":{{"schemas":{{{schemas_json}}}}}}}"#
-    );
-
-    // Return the static string literal directly (for use in a const)
-    quote! { #static_openapi }
+    // Return code that builds the OpenAPI JSON at runtime
+    quote! {
+        {
+            let mut schema_parts: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
+            #(#schema_builders)*
+            let schemas_json = schema_parts.join(",");
+            ::std::format!(
+                r#"{{"openapi":"3.0.0","info":{{"title":"API","version":"1.0.0"}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
+                #paths_json,
+                schemas_json
+            )
+        }
+    }
 }
