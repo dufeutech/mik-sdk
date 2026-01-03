@@ -104,7 +104,8 @@ The generated schema includes:
 
 | Source | Schema Content |
 |--------|---------------|
-| `Cargo.toml` | API title (`package.name`) and version (`package.version`) |
+| `Cargo.toml` | API title, version, and description (from `package.name`, `package.version`, `package.description`) |
+| Handler functions | Unique `operationId` (format: `package_name.handler_name`) |
 | `routes!` paths | Path definitions with methods |
 | `#[derive(Type)]` | Request/response body schemas |
 | `#[derive(Query)]` | Query parameter definitions |
@@ -112,6 +113,53 @@ The generated schema includes:
 | `/// doc comments` | Operation summaries |
 | Path prefixes | Auto-generated tags (e.g., `/users/{id}` → `Users`) |
 | Error responses | RFC 7807 ProblemDetails for 4XX/5XX |
+
+### API Metadata from Cargo.toml
+
+The schema's `info` section is automatically populated from your `Cargo.toml`:
+
+```toml
+[package]
+name = "my-api"
+version = "0.1.0"
+description = "My awesome API service"
+```
+
+Generates:
+
+```json
+{
+  "info": {
+    "title": "my-api",
+    "version": "0.1.0",
+    "description": "My awesome API service"
+  }
+}
+```
+
+<Aside type="tip" title="Description is Optional">
+If `package.description` is empty or not set, the `description` field is omitted from the schema.
+</Aside>
+
+### Operation IDs
+
+Each route automatically gets a unique `operationId` in the format `package_name.handler_name`. This ensures uniqueness when merging multiple OpenAPI schemas from different services.
+
+```rust
+// In crate "user-service"
+routes! {
+    GET "/users" => list_users,
+    POST "/users" => create_user,
+}
+```
+
+Generates:
+- `operationId: "user_service.list_users"`
+- `operationId: "user_service.create_user"`
+
+<Aside type="note" title="Why Include Package Name?">
+When a host merges schemas from multiple WASM components, handler names like `list` or `get` would collide. The `package_name.handler_name` format ensures globally unique operation IDs.
+</Aside>
 
 ## Example Output
 
@@ -150,11 +198,13 @@ The generated schema includes:
   "openapi": "3.0.0",
   "info": {
     "title": "my-api",
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "description": "My API service"
   },
   "paths": {
     "/users": {
       "get": {
+        "operationId": "my_api.list_users",
         "tags": ["Users"],
         "summary": "List all users with pagination",
         "parameters": [
