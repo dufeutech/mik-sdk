@@ -260,7 +260,7 @@ pub fn generate_openapi_json(defs: &RoutesDef) -> TokenStream2 {
             };
 
             ::std::format!(
-                r#"{{"openapi":"3.0.0","info":{{{}}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
+                r#"{{"openapi":"3.0.0","info":{{{}}},"servers":[{{"url":"/","description":"WASI HTTP component - runs on any WASI Preview 2 compliant runtime"}}],"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
                 __info_json,
                 __paths_json,
                 __schemas_json
