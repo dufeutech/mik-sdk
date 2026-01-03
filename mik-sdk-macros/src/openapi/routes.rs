@@ -20,8 +20,18 @@ use crate::schema::types::{InputSource, RouteDef, RoutesDef};
 fn generate_method_entry_code(route: &RouteDef, default_tag: Option<&str>) -> TokenStream2 {
     let method_name = route.method.as_str();
     let tag = route.effective_tag(default_tag);
+    let handler_name = route.handler.to_string();
 
     let mut parts: Vec<TokenStream2> = Vec::new();
+
+    // Add operationId (package_name.handler_name for uniqueness when merging schemas)
+    parts.push(quote! {
+        __parts.push(::std::format!(
+            "\"operationId\":\"{}.{}\"",
+            ::std::env!("CARGO_PKG_NAME").replace("-", "_"),
+            #handler_name
+        ));
+    });
 
     // Add tag
     parts.push(quote! {
@@ -222,7 +232,7 @@ pub fn generate_openapi_json(defs: &RoutesDef) -> TokenStream2 {
         .collect();
 
     // Return code that builds the OpenAPI JSON at init time
-    // Uses compile-time env vars for title/version from Cargo.toml
+    // Uses compile-time env vars for title/version/description from Cargo.toml
     quote! {
         {
             let __paths_json = #paths_code;
@@ -231,10 +241,27 @@ pub fn generate_openapi_json(defs: &RoutesDef) -> TokenStream2 {
             // Add RFC 7807 ProblemDetails schema (built with utoipa)
             __schema_parts.push(::std::format!("\"ProblemDetails\":{}", #problem_details));
             let __schemas_json = __schema_parts.join(",");
+
+            // Build info object with optional description
+            let __pkg_description = ::std::env!("CARGO_PKG_DESCRIPTION");
+            let __info_json = if __pkg_description.is_empty() {
+                ::std::format!(
+                    "\"title\":\"{}\",\"version\":\"{}\"",
+                    ::std::env!("CARGO_PKG_NAME"),
+                    ::std::env!("CARGO_PKG_VERSION")
+                )
+            } else {
+                ::std::format!(
+                    "\"title\":\"{}\",\"version\":\"{}\",\"description\":\"{}\"",
+                    ::std::env!("CARGO_PKG_NAME"),
+                    ::std::env!("CARGO_PKG_VERSION"),
+                    __pkg_description
+                )
+            };
+
             ::std::format!(
-                r#"{{"openapi":"3.0.0","info":{{"title":"{}","version":"{}"}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
-                ::std::env!("CARGO_PKG_NAME"),
-                ::std::env!("CARGO_PKG_VERSION"),
+                r#"{{"openapi":"3.0.0","info":{{{}}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
+                __info_json,
                 __paths_json,
                 __schemas_json
             )
