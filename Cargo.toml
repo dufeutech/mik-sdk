@@ -17,7 +17,7 @@ exclude = ["test-project"]
 version = "0.1.2"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/dufeut/mik-sdk"
+repository = "https://github.com/dufeutech/mik-sdk"
 documentation = "https://docs.rs/mik-sdk"
 rust-version = "1.89"
 

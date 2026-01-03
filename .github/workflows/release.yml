@@ -175,20 +175,20 @@ jobs:
       - name: Push bridge component to ghcr.io
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
-          oras push ghcr.io/dufeut/mik-sdk-bridge:${VERSION} \
+          oras push ghcr.io/dufeutech/mik-sdk-bridge:${VERSION} \
             --artifact-type application/vnd.wasm.component.v1+wasm \
             mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm:application/wasm
-          oras push ghcr.io/dufeut/mik-sdk-bridge:latest \
+          oras push ghcr.io/dufeutech/mik-sdk-bridge:latest \
             --artifact-type application/vnd.wasm.component.v1+wasm \
             mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm:application/wasm
 
       - name: Push WIT interface to ghcr.io
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
-          oras push ghcr.io/dufeut/mik-sdk-wit:${VERSION} \
+          oras push ghcr.io/dufeutech/mik-sdk-wit:${VERSION} \
             --artifact-type application/vnd.wit \
             mik-wit/core/core.wit:application/wit
-          oras push ghcr.io/dufeut/mik-sdk-wit:latest \
+          oras push ghcr.io/dufeutech/mik-sdk-wit:latest \
             --artifact-type application/vnd.wit \
             mik-wit/core/core.wit:application/wit
 

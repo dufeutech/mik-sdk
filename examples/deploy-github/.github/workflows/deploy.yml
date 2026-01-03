@@ -74,7 +74,7 @@ jobs:
       - name: Fetch WIT deps
         run: |
           mkdir -p wit/deps
-          curl -sL "https://github.com/dufeut/mik-sdk/releases/download/v${{ env.SDK_VERSION }}/wit-deps.tar.gz" \
+          curl -sL "https://github.com/dufeutech/mik-sdk/releases/download/v${{ env.SDK_VERSION }}/wit-deps.tar.gz" \
             | tar -xz -C wit/deps
 
       - name: Build handler
@@ -82,7 +82,7 @@ jobs:
 
       - name: Pull bridge
         run: |
-          oras pull ghcr.io/dufeut/mik-sdk-bridge:${{ env.SDK_VERSION }} -o bridge/
+          oras pull ghcr.io/dufeutech/mik-sdk-bridge:${{ env.SDK_VERSION }} -o bridge/
           mv bridge/mik_bridge.wasm bridge.wasm
 
       - name: Compose components

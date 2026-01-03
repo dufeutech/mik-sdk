@@ -5,7 +5,7 @@
 set -e
 
 VERSION="${1:-latest}"
-REPO="dufeut/mik-sdk"
+REPO="dufeutech/mik-sdk"
 
 echo "Fetching WIT deps from $REPO ($VERSION)..."
 

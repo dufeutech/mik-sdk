@@ -47,7 +47,7 @@ git push origin v0.1.0
 
 1. Fetches WIT deps from mik-sdk releases
 2. Builds handler with `cargo component`
-3. Pulls bridge from `ghcr.io/dufeut/mik-sdk-bridge`
+3. Pulls bridge from `ghcr.io/dufeutech/mik-sdk-bridge`
 4. Composes with `wac`
 5. Strips debug info with `wasm-tools`
 6. Generates OpenAPI schema

@@ -10,16 +10,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/dufeut/mik-sdk/actions/workflows/ci.yml"><img src="https://github.com/dufeut/mik-sdk/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://codecov.io/gh/dufeut/mik-sdk"><img src="https://codecov.io/gh/dufeut/mik-sdk/graph/badge.svg" alt="codecov"></a>
+  <a href="https://github.com/dufeutech/mik-sdk/actions/workflows/ci.yml"><img src="https://github.com/dufeutech/mik-sdk/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/dufeutech/mik-sdk"><img src="https://codecov.io/gh/dufeutech/mik-sdk/graph/badge.svg" alt="codecov"></a>
   <a href="https://crates.io/crates/mik-sdk"><img src="https://img.shields.io/crates/v/mik-sdk.svg" alt="Crates.io"></a>
   <a href="https://docs.rs/mik-sdk"><img src="https://docs.rs/mik-sdk/badge.svg" alt="docs.rs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
 <p align="center">
-  <a href="https://dufeut.github.io/mik-sdk/">Documentation</a> ·
-  <a href="https://github.com/dufeut/mik-sdk/tree/main/examples">Examples</a>
+  <a href="https://dufeutech.github.io/mik-sdk/">Documentation</a> ·
+  <a href="https://github.com/dufeutech/mik-sdk/tree/main/examples">Examples</a>
 </p>
 
 ---
@@ -68,9 +68,9 @@ Requires Rust 1.85+ with `wasm32-wasip2` target and [cargo-component](https://gi
 
 ```bash
 # Get the bridge and WIT interface
-curl -LO https://github.com/dufeut/mik-sdk/releases/latest/download/mik-bridge.wasm
+curl -LO https://github.com/dufeutech/mik-sdk/releases/latest/download/mik-bridge.wasm
 mkdir -p wit/deps/core
-curl -L https://github.com/dufeut/mik-sdk/releases/latest/download/core.wit \
+curl -L https://github.com/dufeutech/mik-sdk/releases/latest/download/core.wit \
   -o wit/deps/core/core.wit
 
 # Build your handler
@@ -86,8 +86,8 @@ wasmtime serve -S cli=y service.wasm
 **OCI Registry** (alternative):
 
 ```bash
-oras pull ghcr.io/dufeut/mik-sdk-bridge:latest    # mik_bridge.wasm
-oras pull ghcr.io/dufeut/mik-sdk-wit:latest       # core.wit
+oras pull ghcr.io/dufeutech/mik-sdk-bridge:latest    # mik_bridge.wasm
+oras pull ghcr.io/dufeutech/mik-sdk-wit:latest       # core.wit
 ```
 
 ## Features
@@ -153,9 +153,9 @@ mik-sdk uses a two-component architecture for maximum portability:
 
 ## Resources
 
-- [Documentation](https://dufeut.github.io/mik-sdk/) — Guides, reference, and best practices
+- [Documentation](https://dufeutech.github.io/mik-sdk/) — Guides, reference, and best practices
 - [API Reference (docs.rs)](https://docs.rs/mik-sdk) — Rust API documentation
-- [Examples](https://github.com/dufeut/mik-sdk/tree/main/examples) — Complete working examples
+- [Examples](https://github.com/dufeutech/mik-sdk/tree/main/examples) — Complete working examples
 - [Contributing](CONTRIBUTING.md) — How to contribute
 
 ## License

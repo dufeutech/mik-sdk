@@ -5,7 +5,7 @@
 set -e
 
 VERSION="${1:-0.1.2}"
-REPO="dufeut/mik-sdk"
+REPO="dufeutech/mik-sdk"
 
 # Auto-install missing tools
 if ! command -v cargo-component &> /dev/null; then

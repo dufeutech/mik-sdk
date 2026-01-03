@@ -21,7 +21,7 @@ package = "mik:my-api"
 path = "wit"
 world = "my-api"
 
-# WIT deps pulled by CI from ghcr.io/dufeut/mik-sdk-wit
+# WIT deps pulled by CI from ghcr.io/dufeutech/mik-sdk-wit
 [package.metadata.component.target.dependencies]
 "mik:core" = { path = "wit/deps/core" }
 "wasi:cli" = { path = "wit/deps/cli" }
