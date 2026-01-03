@@ -105,6 +105,7 @@ The generated schema includes:
 | Source | Schema Content |
 |--------|---------------|
 | `Cargo.toml` | API title, version, and description (from `package.name`, `package.version`, `package.description`) |
+| Default | Servers array with WASI P2 runtime description |
 | Handler functions | Unique `operationId` (format: `package_name.handler_name`) |
 | `routes!` paths | Path definitions with methods |
 | `#[derive(Type)]` | Request/response body schemas |
@@ -141,6 +142,23 @@ Generates:
 <Aside type="tip" title="Description is Optional">
 If `package.description` is empty or not set, the `description` field is omitted from the schema.
 </Aside>
+
+### Servers Array
+
+The schema includes a default server entry indicating the portable nature of WASI components:
+
+```json
+{
+  "servers": [
+    {
+      "url": "/",
+      "description": "WASI HTTP component - runs on any WASI Preview 2 compliant runtime"
+    }
+  ]
+}
+```
+
+The relative URL `/` means the API is served from wherever the component is deployed, making it truly portable across different hosts and runtimes.
 
 ### Operation IDs
 
