@@ -37,15 +37,15 @@ fuzz_target!(|input: FuzzInput| {
     let _ = req.text();
 
     // Query parameter extraction
-    let _ = req.query("test");
-    let _ = req.query("foo");
+    let _ = req.query_or("test", "");
+    let _ = req.query_or("foo", "");
     let _ = req.query_all("bar");
 
     // Header extraction
-    let _ = req.header("content-type");
-    let _ = req.header("authorization");
+    let _ = req.header_or("content-type", "");
+    let _ = req.header_or("authorization", "");
     let _ = req.header_all("set-cookie");
-    let _ = req.trace_id();
+    let _ = req.trace_id_or("");
 
     // Content type checks
     let _ = req.is_json();
@@ -55,10 +55,10 @@ fuzz_target!(|input: FuzzInput| {
     let _ = req.accepts("html");
 
     // Form body parsing
-    let _ = req.form("field");
+    let _ = req.form_or("field", "");
     let _ = req.form_all("fields");
 
     // Path parameter extraction
-    let _ = req.param("id");
-    let _ = req.param("name");
+    let _ = req.param_or("id", "");
+    let _ = req.param_or("name", "");
 });

@@ -216,15 +216,16 @@ Forward trace IDs for distributed tracing:
 
 ```rust
 fn call_downstream(req: &Request) -> Response {
+    let trace_id = req.trace_id_or("");
     let response = fetch!(GET "https://api.example.com/data")
-        .with_trace_id(req.trace_id())  // Forwards x-trace-id header
+        .with_trace_id(if trace_id.is_empty() { None } else { Some(trace_id) })
         .send()?;
 
     ok!({ "traced": true })
 }
 ```
 
-This adds the `x-trace-id` header to outbound requests if present in the incoming request.
+This adds the `traceparent` header (W3C Trace Context) to outbound requests if present in the incoming request.
 
 ## Dynamic URLs
 
@@ -254,13 +255,16 @@ fn create_order(body: OrderInput, req: &Request) -> Response {
     // Validate order
     guard!(body.items.len() > 0, 400, "Order must have items");
 
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() { None } else { Some(trace_id) };
+
     // Call inventory service
     let inventory = fetch!(POST "http://inventory:8080/reserve",
         headers: { "X-Request-ID": random::uuid() },
         json: { "items": body.items },
         timeout: 5000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(trace_opt)
     .send();
 
     let inv_response = ensure!(inventory.ok(), 503, "Inventory service unavailable");
@@ -274,7 +278,7 @@ fn create_order(body: OrderInput, req: &Request) -> Response {
         },
         timeout: 10000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(trace_opt)
     .send();
 
     let pay_response = ensure!(payment.ok(), 503, "Payment service unavailable");
@@ -308,7 +312,7 @@ fn create_order(body: OrderInput, req: &Request) -> Response {
 | --------------------- | ---------------------- |
 | `.send()`             | Execute the request    |
 | `.deny_private_ips()` | Enable SSRF protection |
-| `.with_trace_id(opt)` | Add trace ID header    |
+| `.with_trace_id(opt)` | Add traceparent header |
 
 ### Response Methods
 

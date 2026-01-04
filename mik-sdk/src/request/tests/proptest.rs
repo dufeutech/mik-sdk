@@ -29,7 +29,7 @@ proptest! {
             HashMap::new(),
         );
         // All query access methods should not panic
-        let _ = req.query("key");
+        let _ = req.query_or("key", "");
         let _ = req.query_all("key");
     }
 
@@ -48,7 +48,7 @@ proptest! {
             HashMap::new(),
         );
         // Should not panic
-        let _ = req.query(&key);
+        let _ = req.query_or(&key, "");
     }
 
     /// Test path parameter extraction with special characters.
@@ -64,8 +64,8 @@ proptest! {
                 .collect(),
         );
         // Should not panic
-        let result = req.param("id");
-        prop_assert_eq!(result, Some(param_value.as_str()));
+        let result = req.param_or("id", "");
+        prop_assert_eq!(result, param_value.as_str());
     }
 
     /// Test header parsing with edge case values.
@@ -82,8 +82,8 @@ proptest! {
             HashMap::new(),
         );
         // Header lookup should not panic (case-insensitive)
-        let result = req.header(&name.to_lowercase());
-        prop_assert_eq!(result, Some(value.as_str()));
+        let result = req.header_or(&name.to_lowercase(), "");
+        prop_assert_eq!(result, value.as_str());
     }
 
     /// Test header lookup with arbitrary case variations.
@@ -97,9 +97,9 @@ proptest! {
             HashMap::new(),
         );
         // Both original and lowercase should work
-        let _ = req.header(&name);
-        let _ = req.header(&name.to_lowercase());
-        let _ = req.header(&name.to_uppercase());
+        let _ = req.header_or(&name, "");
+        let _ = req.header_or(&name.to_lowercase(), "");
+        let _ = req.header_or(&name.to_uppercase(), "");
     }
 
     /// Test many query parameters.
@@ -124,9 +124,9 @@ proptest! {
 
         // All params should be accessible
         for i in 0..count {
-            let result = req.query(&format!("key{i}"));
+            let result = req.query_or(&format!("key{i}"), "");
             let expected = format!("value{i}");
-            prop_assert_eq!(result, Some(expected.as_str()));
+            prop_assert_eq!(result, expected.as_str());
         }
     }
 
@@ -147,9 +147,9 @@ proptest! {
 
         // All headers should be accessible
         for i in 0..count {
-            let result = req.header(&format!("x-header-{i}"));
+            let result = req.header_or(&format!("x-header-{i}"), "");
             let expected = format!("value-{i}");
-            prop_assert_eq!(result, Some(expected.as_str()));
+            prop_assert_eq!(result, expected.as_str());
         }
     }
 
@@ -167,7 +167,7 @@ proptest! {
             HashMap::new(),
         );
         // Form access should not panic
-        let _ = req.form("key");
+        let _ = req.form_or("key", "");
         let _ = req.form_all("key");
     }
 
@@ -188,8 +188,8 @@ proptest! {
             Some(body.into_bytes()),
             HashMap::new(),
         );
-        let result = req.form(&key);
-        prop_assert_eq!(result, Some(value.as_str()));
+        let result = req.form_or(&key, "");
+        prop_assert_eq!(result, value.as_str());
     }
 
     /// Test body handling with arbitrary bytes.
@@ -247,7 +247,7 @@ proptest! {
             HashMap::new(),
         );
         // All content type checks should not panic
-        let _ = req.content_type();
+        let _ = req.content_type_or("");
         let _ = req.is_json();
         let _ = req.is_form();
         let _ = req.is_html();
@@ -311,9 +311,9 @@ proptest! {
             HashMap::new(),
         );
 
-        // query() returns first value
-        let first = req.query(&key);
-        prop_assert_eq!(first, Some("value0"));
+        // query_or() returns first value
+        let first = req.query_or(&key, "");
+        prop_assert_eq!(first, "value0");
 
         // query_all() returns all values
         let all = req.query_all(&key);
@@ -338,9 +338,9 @@ proptest! {
             HashMap::new(),
         );
 
-        // header() returns first value
-        let first = req.header(&name);
-        prop_assert_eq!(first, Some("value0"));
+        // header_or() returns first value
+        let first = req.header_or(&name, "");
+        prop_assert_eq!(first, "value0");
 
         // header_all() returns all values
         let all = req.header_all(&name);

@@ -334,7 +334,7 @@ fn handler(req: &Request) -> Response {
 
 ```rust
 fn handler(req: &Request) -> Response {
-    let trace_id = req.trace_id().unwrap_or("unknown");
+    let trace_id = req.trace_id_or("unknown");
     let start = time::now_millis();
 
     log!(info, "request started",
@@ -361,8 +361,9 @@ fn handler(req: &Request) -> Response {
 
 ```rust
 fn call_downstream(req: &Request) -> Response {
+    let trace_id = req.trace_id_or("");
     let response = fetch!(GET "http://service:8080/data")
-        .with_trace_id(req.trace_id())
+        .with_trace_id(if trace_id.is_empty() { None } else { Some(trace_id) })
         .send()?;
 
     ok!({ "status": response.status() })

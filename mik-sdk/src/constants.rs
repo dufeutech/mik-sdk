@@ -122,11 +122,11 @@ pub const HEADER_CONTENT_TYPE_TITLE: &str = "Content-Type";
 /// Authorization header name (lowercase for lookups).
 pub const HEADER_AUTHORIZATION: &str = "authorization";
 
-/// Trace ID header name (lowercase for lookups).
-pub const HEADER_TRACE_ID: &str = "x-trace-id";
+/// W3C Trace Context header name (always lowercase per spec).
+pub const HEADER_TRACE_ID: &str = "traceparent";
 
-/// Trace ID header name (title-case for setting headers).
-pub const HEADER_TRACE_ID_TITLE: &str = "X-Trace-Id";
+/// W3C Trace Context header name for outgoing requests (same as HEADER_TRACE_ID).
+pub const HEADER_TRACE_ID_TITLE: &str = "traceparent";
 
 // ============================================================================
 // COMMON MIME TYPES

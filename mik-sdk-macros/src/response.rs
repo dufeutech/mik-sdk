@@ -13,6 +13,99 @@ use syn::{
 use crate::errors::did_you_mean;
 use crate::json::{JsonValue, json_value_to_tokens};
 
+// =============================================================================
+// SHARED HEADER UTILITIES
+// =============================================================================
+
+/// A single response header entry: `"Header-Name": value_expr`
+struct HeaderEntry {
+    name: syn::LitStr,
+    value: Expr,
+}
+
+impl Parse for HeaderEntry {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let name: syn::LitStr = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let value: Expr = input.parse()?;
+        Ok(Self { name, value })
+    }
+}
+
+/// A block of headers: `{ "Header": value, ... }`
+pub struct HeadersBlock {
+    entries: Punctuated<HeaderEntry, Token![,]>,
+}
+
+impl Parse for HeadersBlock {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let content;
+        syn::braced!(content in input);
+        let entries = content.parse_terminated(HeaderEntry::parse, Token![,])?;
+        Ok(Self { entries })
+    }
+}
+
+/// Generate code to build headers Vec with optional extra headers.
+///
+/// This is the DRY helper for all response macros that need headers.
+/// It merges base headers (e.g., Content-Type) with user-provided headers.
+fn generate_headers_code(
+    base_headers: Vec<TokenStream2>,
+    extra_headers: Option<&HeadersBlock>,
+) -> TokenStream2 {
+    let extra_header_pushes: Vec<TokenStream2> = extra_headers
+        .map(|h| {
+            h.entries
+                .iter()
+                .map(|entry| {
+                    let name = &entry.name;
+                    let value = &entry.value;
+                    quote! {
+                        __headers.push((#name.to_string(), (#value).to_string()));
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if extra_header_pushes.is_empty() {
+        // No extra headers - just use base headers directly
+        quote! {
+            vec![#(#base_headers),*]
+        }
+    } else {
+        // Build headers dynamically with extra headers
+        quote! {
+            {
+                let mut __headers: ::std::vec::Vec<(::std::string::String, ::std::string::String)> = vec![#(#base_headers),*];
+                #(#extra_header_pushes)*
+                __headers
+            }
+        }
+    }
+}
+
+/// Generate a Content-Type: application/json header.
+fn json_content_type_header() -> TokenStream2 {
+    quote! {
+        (
+            ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
+            ::mik_sdk::constants::MIME_JSON.to_string()
+        )
+    }
+}
+
+/// Generate a Content-Type: application/problem+json header.
+fn problem_json_content_type_header() -> TokenStream2 {
+    quote! {
+        (
+            ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
+            ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
+        )
+    }
+}
+
 /// Valid fields for error! macro.
 const VALID_ERROR_FIELDS: &[&str] = &[
     "status",
@@ -22,15 +115,22 @@ const VALID_ERROR_FIELDS: &[&str] = &[
     "type",
     "instance",
     "meta",
+    "headers",
 ];
 
-/// Return 200 OK with JSON body.
+/// Return 200 OK with JSON body and optional headers.
 ///
 /// # Examples
 ///
 /// ```ignore
-/// // Literals work directly
+/// // Simple JSON response
 /// ok!({ "message": "Hello!" })
+///
+/// // With custom headers
+/// ok!({ "data": result }, headers: {
+///     "X-Request-Id": req.trace_id_or(""),
+///     "Cache-Control": "no-cache"
+/// })
 ///
 /// // Use type hints for expressions
 /// ok!({
@@ -38,18 +138,51 @@ const VALID_ERROR_FIELDS: &[&str] = &[
 ///     "count": int(items.len())
 /// })
 /// ```
+struct OkInput {
+    body: JsonValue,
+    headers: Option<HeadersBlock>,
+}
+
+impl Parse for OkInput {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let body: JsonValue = input.parse()?;
+
+        let headers = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            // Expect "headers" identifier
+            let ident: syn::Ident = input.parse()?;
+            if ident != "headers" {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected 'headers' keyword after JSON body.\n\
+                     \n\
+                     Correct syntax:\n\
+                     ok!({ \"data\": value }, headers: {\n\
+                         \"X-Header\": value\n\
+                     })",
+                ));
+            }
+            input.parse::<Token![:]>()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+
+        Ok(Self { body, headers })
+    }
+}
+
 pub fn ok_impl(input: TokenStream) -> TokenStream {
-    let value = parse_macro_input!(input as JsonValue);
-    let json_tokens = json_value_to_tokens(&value);
+    let parsed = parse_macro_input!(input as OkInput);
+    let json_tokens = json_value_to_tokens(&parsed.body);
+
+    let base_headers = vec![json_content_type_header()];
+    let headers_code = generate_headers_code(base_headers, parsed.headers.as_ref());
+
     let tokens = quote! {
         handler::Response {
             status: 200,
-            headers: vec![
-                (
-                    ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                    ::mik_sdk::constants::MIME_JSON.to_string()
-                )
-            ],
+            headers: #headers_code,
             body: Some(#json_tokens.to_bytes()),
         }
     };
@@ -64,12 +197,14 @@ struct ProblemDetails {
     problem_type: Option<Expr>,
     instance: Option<Expr>,
     meta: Option<JsonValue>,
+    headers: Option<HeadersBlock>,
 }
 
 /// A single field in the problem builder: `key: value`
 enum ProblemFieldValue {
     Expr(Expr),
     Json(JsonValue),
+    Headers(HeadersBlock),
 }
 
 struct ProblemField {
@@ -119,6 +254,7 @@ impl Parse for ProblemField {
         })?;
 
         // For 'meta' field, parse as JsonValue (allows { ... } object syntax)
+        // For 'headers' field, parse as HeadersBlock
         let value = if name == "meta" {
             ProblemFieldValue::Json(input.parse().map_err(|e| {
                 syn::Error::new(
@@ -131,6 +267,23 @@ impl Parse for ProblemField {
                                  meta: {{\n\
                                      \"field\": \"email\",\n\
                                      \"reason\": \"Invalid format\"\n\
+                                 }}\n\
+                                 \n\
+                                 Original error: {e}"
+                    ),
+                )
+            })?)
+        } else if name == "headers" {
+            ProblemFieldValue::Headers(input.parse().map_err(|e| {
+                syn::Error::new(
+                    e.span(),
+                    format!(
+                        "Invalid 'headers' field value.\n\
+                                 Expected: {{ \"Header-Name\": value, ... }}\n\
+                                 \n\
+                                 Example:\n\
+                                 headers: {{\n\
+                                     \"X-Request-Id\": req.trace_id_or(\"\")\n\
                                  }}\n\
                                  \n\
                                  Original error: {e}"
@@ -196,6 +349,7 @@ impl Parse for ProblemDetails {
         let mut problem_type: Option<Expr> = None;
         let mut instance: Option<Expr> = None;
         let mut meta: Option<JsonValue> = None;
+        let mut headers: Option<HeadersBlock> = None;
 
         for field in fields {
             match field.name.to_string().as_str() {
@@ -265,6 +419,17 @@ impl Parse for ProblemDetails {
                         meta = Some(j);
                     }
                 },
+                "headers" => {
+                    if headers.is_some() {
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "headers",
+                        ));
+                    }
+                    if let ProblemFieldValue::Headers(h) = field.value {
+                        headers = Some(h);
+                    }
+                },
                 other => {
                     let suggestion = did_you_mean(other, VALID_ERROR_FIELDS);
                     return Err(syn::Error::new_spanned(
@@ -280,6 +445,7 @@ impl Parse for ProblemDetails {
                              - type: <string> (optional) - Alias for problem_type\n\
                              - instance: <string> (optional) - URI reference for this occurrence\n\
                              - meta: {{ ... }} (optional) - Additional custom fields\n\
+                             - headers: {{ ... }} (optional) - Custom response headers\n\
                              \n\
                              Example:\n\
                              error! {{\n\
@@ -318,11 +484,12 @@ impl Parse for ProblemDetails {
             problem_type,
             instance,
             meta,
+            headers,
         })
     }
 }
 
-/// Return RFC 7807 Problem Details error response.
+/// Return RFC 7807 Problem Details error response with optional headers.
 ///
 /// Produces: `{"type": "...", "title": "...", "status": N, "detail": "...", ...}`
 ///
@@ -339,6 +506,16 @@ impl Parse for ProblemDetails {
 ///     detail: "User not found",
 ///     problem_type: "urn:problem:user-not-found",  // optional
 ///     instance: "/users/123",                       // optional
+/// }
+///
+/// // With custom headers
+/// error! {
+///     status: 404,
+///     title: "Not Found",
+///     detail: "User not found",
+///     headers: {
+///         "X-Request-Id": req.trace_id_or("")
+///     }
 /// }
 ///
 /// // With custom meta fields (RFC 7807 extension members)
@@ -386,6 +563,10 @@ pub fn error_impl(input: TokenStream) -> TokenStream {
         vec![]
     };
 
+    // Use shared headers helper
+    let base_headers = vec![problem_json_content_type_header()];
+    let headers_code = generate_headers_code(base_headers, problem.headers.as_ref());
+
     let tokens = quote! {
         {
             let __mik_sdk_body = json::obj()
@@ -397,12 +578,7 @@ pub fn error_impl(input: TokenStream) -> TokenStream {
                 #(#meta_fields)*;
             handler::Response {
                 status: #status as u16,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
-                    )
-                ],
+                headers: #headers_code,
                 body: Some(__mik_sdk_body.to_bytes()),
             }
         }
@@ -411,7 +587,7 @@ pub fn error_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-/// Create a 201 Created response with optional Location header and body.
+/// Create a 201 Created response with optional Location header, body, and custom headers.
 ///
 /// # Examples
 ///
@@ -421,29 +597,73 @@ pub fn error_impl(input: TokenStream) -> TokenStream {
 ///
 /// // With just location
 /// created!("/users/123")
+///
+/// // With custom headers
+/// created!("/users/123", { "id": "123" }, headers: {
+///     "X-Request-Id": req.trace_id_or("")
+/// })
 /// ```
 struct CreatedInput {
     location: Expr,
     body: Option<JsonValue>,
+    headers: Option<HeadersBlock>,
 }
 
 impl Parse for CreatedInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let location: Expr = input.parse()?;
 
-        let body = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            Some(input.parse()?)
-        } else {
-            None
-        };
+        let mut body = None;
+        let mut headers = None;
 
-        Ok(Self { location, body })
+        // Check for optional body or headers
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+
+            // Check if it's "headers:" or a JSON body
+            if input.peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
+                if ident == "headers" {
+                    input.parse::<Token![:]>()?;
+                    headers = Some(input.parse()?);
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        "Expected 'headers' keyword or JSON body",
+                    ));
+                }
+            } else {
+                // Parse JSON body
+                body = Some(input.parse()?);
+
+                // Check for optional headers after body
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                    let ident: syn::Ident = input.parse()?;
+                    if ident == "headers" {
+                        input.parse::<Token![:]>()?;
+                        headers = Some(input.parse()?);
+                    } else {
+                        return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            location,
+            body,
+            headers,
+        })
     }
 }
 
 pub fn created_impl(input: TokenStream) -> TokenStream {
-    let CreatedInput { location, body } = parse_macro_input!(input as CreatedInput);
+    let CreatedInput {
+        location,
+        body,
+        headers,
+    } = parse_macro_input!(input as CreatedInput);
 
     let body_expr = body.map_or_else(
         || quote! { None },
@@ -453,16 +673,16 @@ pub fn created_impl(input: TokenStream) -> TokenStream {
         },
     );
 
+    let base_headers = vec![
+        json_content_type_header(),
+        quote! { ("location".to_string(), #location.to_string()) },
+    ];
+    let headers_code = generate_headers_code(base_headers, headers.as_ref());
+
     let tokens = quote! {
         handler::Response {
             status: 201,
-            headers: vec![
-                (
-                    ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                    ::mik_sdk::constants::MIME_JSON.to_string()
-                ),
-                ("location".to_string(), #location.to_string())
-            ],
+            headers: #headers_code,
             body: #body_expr,
         }
     };
@@ -470,7 +690,7 @@ pub fn created_impl(input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-/// Create a 204 No Content response.
+/// Create a 204 No Content response with optional headers.
 ///
 /// # Examples
 ///
@@ -479,12 +699,42 @@ pub fn created_impl(input: TokenStream) -> TokenStream {
 ///     // ... delete logic ...
 ///     no_content!()
 /// }
+///
+/// // With custom headers
+/// no_content!(headers: {
+///     "X-Request-Id": req.trace_id_or("")
+/// })
 /// ```
-pub fn no_content_impl(_input: TokenStream) -> TokenStream {
+struct NoContentInput {
+    headers: Option<HeadersBlock>,
+}
+
+impl Parse for NoContentInput {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        if input.is_empty() {
+            return Ok(Self { headers: None });
+        }
+
+        // Expect "headers:" keyword
+        let ident: syn::Ident = input.parse()?;
+        if ident != "headers" {
+            return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+        }
+        input.parse::<Token![:]>()?;
+        let headers = Some(input.parse()?);
+
+        Ok(Self { headers })
+    }
+}
+
+pub fn no_content_impl(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as NoContentInput);
+    let headers_code = generate_headers_code(vec![], parsed.headers.as_ref());
+
     let tokens = quote! {
         handler::Response {
             status: 204,
-            headers: vec![],
+            headers: #headers_code,
             body: None,
         }
     };
@@ -492,7 +742,7 @@ pub fn no_content_impl(_input: TokenStream) -> TokenStream {
     TokenStream::from(tokens)
 }
 
-/// Create a redirect response (302 Found by default, or custom status).
+/// Create a redirect response (302 Found by default, or custom status) with optional headers.
 ///
 /// # Examples
 ///
@@ -505,41 +755,68 @@ pub fn no_content_impl(_input: TokenStream) -> TokenStream {
 ///
 /// // 307 Temporary Redirect
 /// redirect!(307, "/maintenance")
+///
+/// // With custom headers
+/// redirect!("/login", headers: {
+///     "X-Request-Id": req.trace_id_or("")
+/// })
 /// ```
-enum RedirectInput {
-    Simple(Expr),
-    WithStatus(LitInt, Expr),
+struct RedirectInput {
+    status: Option<LitInt>,
+    location: Expr,
+    headers: Option<HeadersBlock>,
 }
 
 impl Parse for RedirectInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let mut status = None;
+
         // Check if first token is a number (status code)
         if input.peek(LitInt) {
-            let status: LitInt = input.parse()?;
+            status = Some(input.parse()?);
             input.parse::<Token![,]>()?;
-            let location: Expr = input.parse()?;
-            Ok(Self::WithStatus(status, location))
-        } else {
-            let location: Expr = input.parse()?;
-            Ok(Self::Simple(location))
         }
+
+        let location: Expr = input.parse()?;
+
+        // Check for optional headers
+        let headers = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            let ident: syn::Ident = input.parse()?;
+            if ident == "headers" {
+                input.parse::<Token![:]>()?;
+                Some(input.parse()?)
+            } else {
+                return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            status,
+            location,
+            headers,
+        })
     }
 }
 
 pub fn redirect_impl(input: TokenStream) -> TokenStream {
-    let parsed = parse_macro_input!(input as RedirectInput);
+    let RedirectInput {
+        status,
+        location,
+        headers,
+    } = parse_macro_input!(input as RedirectInput);
 
-    let (status, location) = match parsed {
-        RedirectInput::Simple(loc) => (quote! { 302 }, loc),
-        RedirectInput::WithStatus(s, loc) => (quote! { #s }, loc),
-    };
+    let status_code = status.map_or_else(|| quote! { 302 }, |s| quote! { #s });
+
+    let base_headers = vec![quote! { ("location".to_string(), #location.to_string()) }];
+    let headers_code = generate_headers_code(base_headers, headers.as_ref());
 
     let tokens = quote! {
         handler::Response {
-            status: #status as u16,
-            headers: vec![
-                ("location".to_string(), #location.to_string())
-            ],
+            status: #status_code as u16,
+            headers: #headers_code,
             body: None,
         }
     };
@@ -557,16 +834,84 @@ struct SimpleErrorConfig {
     default_detail: &'static str,
 }
 
-/// Build a simple RFC 7807 error response with configurable status and detail.
+/// Input for simple error macros: optional detail and optional headers.
+struct SimpleErrorInput {
+    detail: Option<Expr>,
+    headers: Option<HeadersBlock>,
+}
+
+impl Parse for SimpleErrorInput {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        if input.is_empty() {
+            return Ok(Self {
+                detail: None,
+                headers: None,
+            });
+        }
+
+        let mut detail = None;
+        let mut headers = None;
+
+        // Check if it's "headers:" keyword or a detail expression
+        if input.peek(syn::Ident) {
+            // Could be "headers:" or an identifier used as detail
+            let fork = input.fork();
+            let ident: syn::Ident = fork.parse()?;
+            if ident == "headers" && fork.peek(Token![:]) {
+                // It's "headers:" - parse it
+                input.parse::<syn::Ident>()?;
+                input.parse::<Token![:]>()?;
+                headers = Some(input.parse()?);
+            } else {
+                // It's an expression (e.g., variable name for detail)
+                detail = Some(input.parse()?);
+                // Check for optional headers after detail
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                    let ident: syn::Ident = input.parse()?;
+                    if ident == "headers" {
+                        input.parse::<Token![:]>()?;
+                        headers = Some(input.parse()?);
+                    } else {
+                        return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+                    }
+                }
+            }
+        } else {
+            // Parse detail expression
+            detail = Some(input.parse()?);
+            // Check for optional headers after detail
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+                let ident: syn::Ident = input.parse()?;
+                if ident == "headers" {
+                    input.parse::<Token![:]>()?;
+                    headers = Some(input.parse()?);
+                } else {
+                    return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+                }
+            }
+        }
+
+        Ok(Self { detail, headers })
+    }
+}
+
+/// Build a simple RFC 7807 error response with configurable status, detail, and optional headers.
 fn simple_error_response(config: SimpleErrorConfig, input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as SimpleErrorInput);
     let status = config.status;
-    let detail = if input.is_empty() {
-        let default = config.default_detail;
-        quote! { #default }
-    } else {
-        let expr = parse_macro_input!(input as Expr);
-        quote! { #expr }
-    };
+
+    let detail = parsed.detail.map_or_else(
+        || {
+            let default = config.default_detail;
+            quote! { #default }
+        },
+        |expr| quote! { #expr },
+    );
+
+    let base_headers = vec![problem_json_content_type_header()];
+    let headers_code = generate_headers_code(base_headers, parsed.headers.as_ref());
 
     let tokens = quote! {
         {
@@ -577,12 +922,7 @@ fn simple_error_response(config: SimpleErrorConfig, input: TokenStream) -> Token
                 .set("detail", json::str(#detail));
             handler::Response {
                 status: #status,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_PROBLEM_JSON.to_string()
-                    )
-                ],
+                headers: #headers_code,
                 body: Some(__mik_sdk_body.to_bytes()),
             }
         }
@@ -686,37 +1026,83 @@ pub fn bad_request_impl(input: TokenStream) -> TokenStream {
 ///
 /// // Accepted with no body
 /// accepted!()
+///
+/// // With custom headers
+/// accepted!({ "job_id": str(id) }, headers: {
+///     "X-Job-Status": "pending"
+/// })
 /// ```
-pub fn accepted_impl(input: TokenStream) -> TokenStream {
-    if input.is_empty() {
-        // No body - return 202 with empty response
-        let tokens = quote! {
-            handler::Response {
-                status: 202,
-                headers: vec![],
-                body: None,
-            }
-        };
-        return TokenStream::from(tokens);
-    }
+struct AcceptedInput {
+    body: Option<JsonValue>,
+    headers: Option<HeadersBlock>,
+}
 
-    // Parse JSON body
-    let json_value = parse_macro_input!(input as JsonValue);
-    let json_tokens = json_value_to_tokens(&json_value);
+impl Parse for AcceptedInput {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        if input.is_empty() {
+            return Ok(Self {
+                body: None,
+                headers: None,
+            });
+        }
+
+        let mut body = None;
+        let mut headers = None;
+
+        // Check if it's "headers:" or a JSON body
+        if input.peek(syn::Ident) {
+            let ident: syn::Ident = input.parse()?;
+            if ident == "headers" {
+                input.parse::<Token![:]>()?;
+                headers = Some(input.parse()?);
+            } else {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected 'headers' keyword or JSON body",
+                ));
+            }
+        } else {
+            // Parse JSON body
+            body = Some(input.parse()?);
+
+            // Check for optional headers after body
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+                let ident: syn::Ident = input.parse()?;
+                if ident == "headers" {
+                    input.parse::<Token![:]>()?;
+                    headers = Some(input.parse()?);
+                } else {
+                    return Err(syn::Error::new_spanned(ident, "Expected 'headers' keyword"));
+                }
+            }
+        }
+
+        Ok(Self { body, headers })
+    }
+}
+
+pub fn accepted_impl(input: TokenStream) -> TokenStream {
+    let parsed = parse_macro_input!(input as AcceptedInput);
+
+    let (body_expr, base_headers) = parsed.body.map_or_else(
+        || (quote! { None }, vec![]),
+        |b| {
+            let json_tokens = json_value_to_tokens(&b);
+            (
+                quote! { Some(#json_tokens.to_bytes()) },
+                vec![json_content_type_header()],
+            )
+        },
+    );
+
+    let headers_code = generate_headers_code(base_headers, parsed.headers.as_ref());
 
     let tokens = quote! {
-        {
-            let __mik_sdk_body = #json_tokens;
-            handler::Response {
-                status: 202,
-                headers: vec![
-                    (
-                        ::mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        ::mik_sdk::constants::MIME_JSON.to_string()
-                    )
-                ],
-                body: Some(__mik_sdk_body.to_bytes()),
-            }
+        handler::Response {
+            status: 202,
+            headers: #headers_code,
+            body: #body_expr,
         }
     };
 

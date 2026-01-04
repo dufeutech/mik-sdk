@@ -155,5 +155,5 @@ fn test_malformed_empty_request() {
 
     assert_eq!(req.path(), "");
     assert_eq!(req.path_without_query(), "");
-    assert_eq!(req.query("any"), None);
+    assert!(req.query_or("any", "").is_empty());
 }

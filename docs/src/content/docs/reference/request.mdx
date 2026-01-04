@@ -45,11 +45,11 @@ routes! {
 }
 
 fn get_user(req: &Request) -> Response {
-    // Access via param()
-    let id = req.param("id");  // Option<&str>
+    // Access via param_or()
+    let id = req.param_or("id", "");  // &str
 
-    if let Some(user_id) = id {
-        ok!({ "id": user_id })
+    if !id.is_empty() {
+        ok!({ "id": id })
     } else {
         bad_request!("ID required")
     }
@@ -65,9 +65,9 @@ fn get_user(req: &Request) -> Response {
 
 ```rust
 fn search(req: &Request) -> Response {
-    // Single value (first occurrence)
-    let q = req.query("q");           // Option<&str>
-    let page = req.query("page");     // Option<&str>
+    // Single value (first occurrence) with default
+    let q = req.query_or("q", "");           // &str
+    let page = req.query_or("page", "1");    // &str
 
     // All values for multi-value params
     // Example: /search?tag=rust&tag=wasm&tag=http
@@ -84,19 +84,19 @@ fn search(req: &Request) -> Response {
 
 ```rust
 fn handler(req: &Request) -> Response {
-    // Single header (case-insensitive)
-    let content_type = req.header("Content-Type");
-    let auth = req.header("authorization");  // Case doesn't matter
+    // Single header (case-insensitive) with default
+    let content_type = req.header_or("content-type", "");
+    let auth = req.header_or("authorization", "");  // Case doesn't matter
 
     // All values for multi-value headers
-    let cookies = req.header_all("Set-Cookie");  // Vec<&str>
+    let cookies = req.header_all("set-cookie");  // Vec<&str>
 
     // All headers
     let all_headers = req.headers();  // &[(String, String)]
 
-    // Common header shortcuts
-    let trace_id = req.trace_id();    // x-trace-id header
-    let content_type = req.content_type();  // Content-Type header
+    // Common header shortcuts with defaults
+    let trace_id = req.trace_id_or("");           // traceparent header
+    let content_type = req.content_type_or("");   // Content-Type header
 
     ok!({ "auth": auth })
 }
@@ -155,9 +155,9 @@ For `application/x-www-form-urlencoded` requests:
 fn submit_form(req: &Request) -> Response {
     guard!(req.is_form(), 415, "Expected form data");
 
-    // Single value
-    let name = req.form("name");      // Option<&str>
-    let email = req.form("email");    // Option<&str>
+    // Single value with default
+    let name = req.form_or("name", "");      // &str
+    let email = req.form_or("email", "");    // &str
 
     // Multi-value fields
     // Example: checkboxes with same name
@@ -224,8 +224,8 @@ fn create_item(req: &Request) -> Response {
         "name is required"
     );
 
-    // Get optional header
-    let trace_id = req.trace_id().unwrap_or("unknown");
+    // Get trace ID with default
+    let trace_id = req.trace_id_or("unknown");
 
     // Log the request
     log!(info, "creating item", name: &name, trace_id: trace_id);
@@ -242,27 +242,27 @@ fn create_item(req: &Request) -> Response {
 
 ## API Summary
 
-| Method                 | Returns               | Description                   |
-| ---------------------- | --------------------- | ----------------------------- |
-| `method()`             | `Method`              | HTTP method                   |
-| `path()`               | `&str`                | Full path with query          |
-| `path_without_query()` | `&str`                | Path only                     |
-| `param(name)`          | `Option<&str>`        | Path parameter                |
-| `query(name)`          | `Option<&str>`        | First query param value       |
-| `query_all(name)`      | `&[String]`           | All query param values        |
-| `header(name)`         | `Option<&str>`        | Header (case-insensitive)     |
-| `header_all(name)`     | `Vec<&str>`           | All header values             |
-| `headers()`            | `&[(String, String)]` | All headers                   |
-| `trace_id()`           | `Option<&str>`        | x-trace-id header             |
-| `body()`               | `Option<&[u8]>`       | Raw body bytes                |
-| `text()`               | `Option<&str>`        | Body as UTF-8                 |
-| `json()`               | `Option<JsonValue>`   | Parse body as JSON            |
-| `json_with(f)`         | `Option<T>`           | Parse body with custom parser |
-| `has_body()`           | `bool`                | True if body is non-empty     |
-| `content_type()`       | `Option<&str>`        | Content-Type header           |
-| `is_json()`            | `bool`                | Content-Type is JSON          |
-| `is_html()`            | `bool`                | Content-Type is HTML          |
-| `is_form()`            | `bool`                | Content-Type is form          |
-| `accepts(mime)`        | `bool`                | Accept header contains        |
-| `form(name)`           | `Option<&str>`        | Form field value              |
-| `form_all(name)`       | `&[String]`           | All form field values         |
+| Method                   | Returns               | Description                   |
+| ------------------------ | --------------------- | ----------------------------- |
+| `method()`               | `Method`              | HTTP method                   |
+| `path()`                 | `&str`                | Full path with query          |
+| `path_without_query()`   | `&str`                | Path only                     |
+| `param_or(name, def)`    | `&str`                | Path parameter                |
+| `query_or(name, def)`    | `&str`                | First query param value       |
+| `query_all(name)`        | `&[String]`           | All query param values        |
+| `header_or(name, def)`   | `&str`                | Header (case-insensitive)     |
+| `header_all(name)`       | `Vec<&str>`           | All header values             |
+| `headers()`              | `&[(String, String)]` | All headers                   |
+| `trace_id_or(def)`       | `&str`                | traceparent header            |
+| `body()`                 | `Option<&[u8]>`       | Raw body bytes                |
+| `text()`                 | `Option<&str>`        | Body as UTF-8                 |
+| `json()`                 | `Option<JsonValue>`   | Parse body as JSON            |
+| `json_with(f)`           | `Option<T>`           | Parse body with custom parser |
+| `has_body()`             | `bool`                | True if body is non-empty     |
+| `content_type_or(def)`   | `&str`                | Content-Type header           |
+| `is_json()`              | `bool`                | Content-Type is JSON          |
+| `is_html()`              | `bool`                | Content-Type is HTML          |
+| `is_form()`              | `bool`                | Content-Type is form          |
+| `accepts(mime)`          | `bool`                | Accept header contains        |
+| `form_or(name, def)`     | `&str`                | Form field value              |
+| `form_all(name)`         | `&[String]`           | All form field values         |

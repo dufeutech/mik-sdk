@@ -17,9 +17,9 @@ fn test_form_basic() {
     );
 
     assert!(req.is_form());
-    assert_eq!(req.form("name"), Some("Alice"));
-    assert_eq!(req.form("email"), Some("alice@example.com"));
-    assert_eq!(req.form("missing"), None);
+    assert_eq!(req.form_or("name", ""), "Alice");
+    assert_eq!(req.form_or("email", ""), "alice@example.com");
+    assert!(req.form_or("missing", "").is_empty());
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn test_form_all_values() {
     assert_eq!(tags[1], "wasm");
     assert_eq!(tags[2], "http");
 
-    assert_eq!(req.form("tags"), Some("rust")); // First value
+    assert_eq!(req.form_or("tags", ""), "rust"); // First value
 }
 
 #[test]
@@ -54,8 +54,8 @@ fn test_form_url_decoding() {
         HashMap::new(),
     );
 
-    assert_eq!(req.form("message"), Some("hello world")); // + becomes space
-    assert_eq!(req.form("special"), Some("&=?")); // URL decoded
+    assert_eq!(req.form_or("message", ""), "hello world"); // + becomes space
+    assert_eq!(req.form_or("special", ""), "&=?"); // URL decoded
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn test_form_empty_body() {
         HashMap::new(),
     );
 
-    assert_eq!(req.form("anything"), None);
+    assert!(req.form_or("anything", "").is_empty());
     assert_eq!(req.form_all("anything").len(), 0);
 }
 
@@ -82,9 +82,9 @@ fn test_form_empty_values() {
         HashMap::new(),
     );
 
-    assert_eq!(req.form("name"), Some("")); // Empty value
-    assert_eq!(req.form("flag"), Some("")); // Key without value
-    assert_eq!(req.form("empty"), Some("")); // Explicit empty
+    assert_eq!(req.form_or("name", "MISSING"), ""); // Empty value
+    assert_eq!(req.form_or("flag", "MISSING"), ""); // Key without value
+    assert_eq!(req.form_or("empty", "MISSING"), ""); // Explicit empty
 }
 
 #[test]
@@ -117,21 +117,22 @@ fn test_unicode_form_data() {
         HashMap::new(),
     );
 
-    assert_eq!(req.form("name"), Some("Émilie"));
-    assert_eq!(req.form("city"), Some("東京"));
+    assert_eq!(req.form_or("name", ""), "Émilie");
+    assert_eq!(req.form_or("city", ""), "東京");
 }
 
 #[test]
 fn test_malformed_form_body() {
     // Malformed form data - documents actual parsing behavior
+    // Using "MISSING" as default to distinguish between "not present" and "present but empty"
     let test_cases = [
-        (b"".to_vec(), None),               // Empty
-        (b"=".to_vec(), None),              // Just equals - empty key, not "key"
-        (b"===".to_vec(), None),            // Multiple equals - empty key
-        (b"&&&".to_vec(), None),            // Just ampersands
-        (b"key".to_vec(), Some("")),        // Key without value or equals
-        (b"%ZZ=bad".to_vec(), None),        // Invalid percent encoding in key - "%ZZ" != "key"
-        (b"key=%ZZ".to_vec(), Some("%ZZ")), // Invalid percent encoding in value - preserved
+        (b"".to_vec(), "MISSING"),        // Empty
+        (b"=".to_vec(), "MISSING"),       // Just equals - empty key, not "key"
+        (b"===".to_vec(), "MISSING"),     // Multiple equals - empty key
+        (b"&&&".to_vec(), "MISSING"),     // Just ampersands
+        (b"key".to_vec(), ""),            // Key without value or equals
+        (b"%ZZ=bad".to_vec(), "MISSING"), // Invalid percent encoding in key - "%ZZ" != "key"
+        (b"key=%ZZ".to_vec(), "%ZZ"),     // Invalid percent encoding in value - preserved
     ];
 
     for (body, expected_key) in test_cases {
@@ -145,7 +146,7 @@ fn test_malformed_form_body() {
             Some(body.clone()),
             HashMap::new(),
         );
-        let result = req.form("key");
+        let result = req.form_or("key", "MISSING");
         assert_eq!(
             result,
             expected_key,
@@ -170,8 +171,8 @@ fn test_form_injection_attempts() {
     );
 
     // Values are decoded but application must validate
-    assert_eq!(req.form("file"), Some("../../../etc/passwd"));
-    assert_eq!(req.form("cmd"), Some("rm -rf /"));
+    assert_eq!(req.form_or("file", ""), "../../../etc/passwd");
+    assert_eq!(req.form_or("cmd", ""), "rm -rf /");
 }
 
 #[test]
@@ -192,5 +193,5 @@ fn test_form_with_file_upload_boundary() {
     );
 
     // Should parse as regular form, not crash
-    let _form = req.form("file");
+    let _form = req.form_or("file", "");
 }

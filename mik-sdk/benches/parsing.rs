@@ -133,27 +133,31 @@ fn bench_request_access(c: &mut Criterion) {
     );
 
     // Query access
-    group.bench_function("query_hit", |b| b.iter(|| req.query(black_box("include"))));
+    group.bench_function("query_hit", |b| {
+        b.iter(|| req.query_or(black_box("include"), ""));
+    });
 
     group.bench_function("query_miss", |b| {
-        b.iter(|| req.query(black_box("nonexistent")));
+        b.iter(|| req.query_or(black_box("nonexistent"), ""));
     });
 
     // Header access
     group.bench_function("header_hit_lowercase", |b| {
-        b.iter(|| req.header(black_box("content-type")));
+        b.iter(|| req.header_or(black_box("content-type"), ""));
     });
 
     group.bench_function("header_hit_uppercase", |b| {
-        b.iter(|| req.header(black_box("CONTENT-TYPE")));
+        b.iter(|| req.header_or(black_box("CONTENT-TYPE"), ""));
     });
 
     group.bench_function("header_miss", |b| {
-        b.iter(|| req.header(black_box("x-nonexistent")));
+        b.iter(|| req.header_or(black_box("x-nonexistent"), ""));
     });
 
     // Path param access
-    group.bench_function("param_hit", |b| b.iter(|| req.param(black_box("id"))));
+    group.bench_function("param_hit", |b| {
+        b.iter(|| req.param_or(black_box("id"), ""));
+    });
 
     // Body access
     group.bench_function("body", |b| b.iter(|| req.body()));
@@ -475,7 +479,7 @@ fn bench_form_parsing(c: &mut Criterion) {
     );
 
     group.bench_function("form_field_access", |b| {
-        b.iter(|| req.form(black_box("email")));
+        b.iter(|| req.form_or(black_box("email"), ""));
     });
 
     group.bench_function("is_form_check", |b| b.iter(|| req.is_form()));

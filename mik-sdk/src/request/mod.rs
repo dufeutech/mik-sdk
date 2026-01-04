@@ -70,9 +70,9 @@ impl std::fmt::Display for Method {
 ///
 /// ```ignore
 /// fn get_user(req: &Request) -> Response {
-///     let id = req.param("id").unwrap_or("0");
-///     let page = req.query("page").unwrap_or("1");
-///     let auth = req.header("authorization");
+///     let id = req.param_or("id", "0");
+///     let page = req.query_or("page", "1");
+///     let auth = req.header_or("authorization", "");
 ///     // ...
 /// }
 /// ```
@@ -224,19 +224,45 @@ impl Request {
         self.path.split('?').next().unwrap_or(&self.path)
     }
 
-    /// Get a path parameter extracted from the route pattern.
+    /// Get a path parameter extracted from the route pattern, or a default.
     ///
-    /// For route `/users/{id}` matching path `/users/123`, `param("id")` returns `Some("123")`.
+    /// For route `/users/{id}` matching path `/users/123`, `param_or("id", "")` returns `"123"`.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let id = req.param_or("id", "0");
+    /// let format = req.param_or("format", "json");
+    /// ```
     #[inline]
-    pub fn param(&self, name: &str) -> Option<&str> {
+    pub fn param_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.param_opt(name).unwrap_or(default)
+    }
+
+    /// Internal: Get a path parameter (Option variant).
+    #[inline]
+    fn param_opt(&self, name: &str) -> Option<&str> {
         self.params.get(name).map(String::as_str)
     }
 
-    /// Get the first query parameter value from the URL.
+    /// Get the first query parameter value from the URL, or a default.
     ///
-    /// For path `/users?page=2&limit=10`, `query("page")` returns `Some("2")`.
+    /// For path `/users?page=2&limit=10`, `query_or("page", "1")` returns `"2"`.
     /// For multiple values with same key, use `query_all()`.
-    pub fn query(&self, name: &str) -> Option<&str> {
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let page = req.query_or("page", "1");
+    /// let sort = req.query_or("sort", "created_at");
+    /// ```
+    #[inline]
+    pub fn query_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.query_opt(name).unwrap_or(default)
+    }
+
+    /// Internal: Get the first query parameter value (Option variant).
+    fn query_opt(&self, name: &str) -> Option<&str> {
         // Parse query string lazily on first access
         let cache = self.query_cache.get_or_init(|| self.parse_query());
         cache.get(name).and_then(|v| v.first()).map(String::as_str)
@@ -257,17 +283,25 @@ impl Request {
         cache.get(name).map_or(&[], Vec::as_slice)
     }
 
-    /// Get the first header value by name (case-insensitive).
+    /// Get the first header value by name (case-insensitive), or a default.
     ///
     /// Uses pre-normalized `HashMap` for O(1) lookup. Avoids allocation when
     /// the header name is already lowercase (common case).
     /// For headers with multiple values (e.g., Set-Cookie), use `header_all()`.
     ///
+    /// # Examples
+    ///
     /// ```ignore
-    /// let content_type = req.header("content-type");
-    /// let auth = req.header("Authorization"); // Same as "authorization"
+    /// let request_id = req.header_or("x-request-id", "unknown");
+    /// let content_type = req.header_or("content-type", "application/octet-stream");
     /// ```
-    pub fn header(&self, name: &str) -> Option<&str> {
+    #[inline]
+    pub fn header_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.header_opt(name).unwrap_or(default)
+    }
+
+    /// Internal: Get the first header value by name (Option variant).
+    fn header_opt(&self, name: &str) -> Option<&str> {
         // Fast path: if name is already lowercase, avoid allocation
         let indices = if name.bytes().all(|b| !b.is_ascii_uppercase()) {
             self.header_index.get(name)
@@ -282,20 +316,31 @@ impl Request {
             .map(|(_, v)| v.as_str())
     }
 
-    /// Get the trace ID from the incoming request.
+    /// Get the W3C traceparent header from the incoming request, or a default.
     ///
-    /// Returns the value of the `x-trace-id` header if present.
+    /// Returns the value of the `traceparent` header if present.
     /// Use this with `ClientRequest::with_trace_id()` to propagate
     /// trace context to outgoing HTTP calls.
     ///
+    /// # Examples
+    ///
     /// ```ignore
+    /// // For logging
+    /// log!(info, "request received", traceparent: req.trace_id_or("none"));
+    ///
+    /// // For response headers
+    /// ok!({ "data": result }, headers: {
+    ///     "traceparent": req.trace_id_or("")
+    /// })
+    ///
+    /// // For outgoing requests
     /// let response = fetch!(GET "https://api.example.com/data")
-    ///     .with_trace_id(req.trace_id())
-    ///     .send_with(&handler)?;
+    ///     .with_trace_id(Some(req.trace_id_or("")))
+    ///     .send()?;
     /// ```
     #[inline]
-    pub fn trace_id(&self) -> Option<&str> {
-        self.header(HEADER_TRACE_ID)
+    pub fn trace_id_or<'a>(&'a self, default: &'a str) -> &'a str {
+        self.header_opt(HEADER_TRACE_ID).unwrap_or(default)
     }
 
     /// Get all values for a header (case-insensitive).
@@ -368,17 +413,24 @@ impl Request {
         self.body.as_ref().is_some_and(|b| !b.is_empty())
     }
 
-    /// Content-Type header value.
+    /// Content-Type header value, or a default.
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// - `Some(&str)` - The Content-Type header value
-    /// - `None` - No Content-Type header present
+    /// ```ignore
+    /// let ct = req.content_type_or("application/octet-stream");
+    /// ```
     #[inline]
     #[must_use]
-    pub fn content_type(&self) -> Option<&str> {
+    pub fn content_type_or<'a>(&'a self, default: &'a str) -> &'a str {
+        self.content_type_opt().unwrap_or(default)
+    }
+
+    /// Internal: Content-Type header value (Option variant).
+    #[inline]
+    fn content_type_opt(&self) -> Option<&str> {
         use crate::constants::HEADER_CONTENT_TYPE;
-        self.header(HEADER_CONTENT_TYPE)
+        self.header_opt(HEADER_CONTENT_TYPE)
     }
 
     /// Check if Content-Type is JSON (case-insensitive).
@@ -386,7 +438,7 @@ impl Request {
     #[must_use]
     pub fn is_json(&self) -> bool {
         use crate::constants::MIME_JSON;
-        self.content_type()
+        self.content_type_opt()
             .is_some_and(|ct| contains_ignore_ascii_case(ct, MIME_JSON))
     }
 
@@ -395,7 +447,7 @@ impl Request {
     #[must_use]
     pub fn is_form(&self) -> bool {
         use crate::constants::MIME_FORM_URLENCODED;
-        self.content_type()
+        self.content_type_opt()
             .is_some_and(|ct| contains_ignore_ascii_case(ct, MIME_FORM_URLENCODED))
     }
 
@@ -404,7 +456,7 @@ impl Request {
     #[must_use]
     pub fn is_html(&self) -> bool {
         use crate::constants::MIME_HTML;
-        self.content_type()
+        self.content_type_opt()
             .is_some_and(|ct| contains_ignore_ascii_case(ct, MIME_HTML))
     }
 
@@ -420,29 +472,31 @@ impl Request {
     /// req.accepts("xml")   // false
     /// ```
     pub fn accepts(&self, mime: &str) -> bool {
-        self.header("accept")
+        self.header_opt("accept")
             .is_some_and(|accept| contains_ignore_ascii_case(accept, mime))
     }
 
-    /// Get the first form field value from a form-urlencoded body.
+    /// Get the first form field value from a form-urlencoded body, or a default.
     ///
     /// Parses `application/x-www-form-urlencoded` body data.
     /// For multiple values with same key, use `form_all()`.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(&str)` - The decoded field value
-    /// - `None` - Field not present, no body, or body is not valid UTF-8
     ///
     /// # Examples
     ///
     /// ```ignore
     /// // Body: name=Alice&email=alice%40example.com
-    /// let name = req.form("name");  // Some("Alice")
-    /// let email = req.form("email"); // Some("alice@example.com")
+    /// let name = req.form_or("name", "");  // "Alice"
+    /// let email = req.form_or("email", ""); // "alice@example.com"
+    /// let missing = req.form_or("missing", "default"); // "default"
     /// ```
+    #[inline]
     #[must_use]
-    pub fn form(&self, name: &str) -> Option<&str> {
+    pub fn form_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.form_opt(name).unwrap_or(default)
+    }
+
+    /// Internal: Get the first form field value (Option variant).
+    fn form_opt(&self, name: &str) -> Option<&str> {
         self.form_cache()
             .get(name)
             .and_then(|v| v.first())

@@ -62,7 +62,7 @@ fn home(_req: &Request) -> Response {
 }
 
 fn hello(req: &Request) -> Response {
-    let name = req.param("name").unwrap_or("stranger");
+    let name = req.param_or("name", "stranger");
     ok!({
         "greeting": format!("Hello, {}!", name),
         "name": name
@@ -165,10 +165,10 @@ flowchart TB
 ```rust
 fn handler(req: &Request) -> Response {
     // Path parameters (from route pattern)
-    let id = req.param("id").unwrap_or("?");
+    let id = req.param_or("id", "?");
 
     // Query parameters
-    let page = req.query("page").unwrap_or("1");
+    let page = req.query_or("page", "1");
 
     // JSON body
     if let Some(parsed) = req.json() {

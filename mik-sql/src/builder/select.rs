@@ -227,10 +227,10 @@ impl<D: Dialect> QueryBuilder<D> {
     /// This method accepts flexible input types for great DX:
     /// - `&Cursor` - when you have an already-parsed cursor
     /// - `&str` - automatically decodes the base64 cursor
-    /// - `Option<&str>` - perfect for `req.query("after")` results
+    /// - `&str` with empty default - works with `req.query_or("after", "")`
     ///
-    /// If the cursor is invalid or None, it's silently ignored.
-    /// This makes it safe to pass `req.query("after")` directly.
+    /// If the cursor is invalid or empty, it's silently ignored.
+    /// This makes it safe to pass `req.query_or("after", "")` directly.
     pub fn after_cursor(mut self, cursor: impl IntoCursor) -> Self {
         if let Some(c) = cursor.into_cursor() {
             self.cursor = Some(c);
@@ -244,9 +244,9 @@ impl<D: Dialect> QueryBuilder<D> {
     /// This method accepts flexible input types for great DX:
     /// - `&Cursor` - when you have an already-parsed cursor
     /// - `&str` - automatically decodes the base64 cursor
-    /// - `Option<&str>` - perfect for `req.query("before")` results
+    /// - `&str` with empty default - works with `req.query_or("before", "")`
     ///
-    /// If the cursor is invalid or None, it's silently ignored.
+    /// If the cursor is invalid or empty, it's silently ignored.
     pub fn before_cursor(mut self, cursor: impl IntoCursor) -> Self {
         if let Some(c) = cursor.into_cursor() {
             self.cursor = Some(c);

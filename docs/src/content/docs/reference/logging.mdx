@@ -119,7 +119,7 @@ log::debug!("Detailed debugging info: {:?}", data);
 
 ```rust
 fn handler(req: &Request) -> Response {
-    let trace_id = req.trace_id().unwrap_or("unknown");
+    let trace_id = req.trace_id_or("unknown");
     let path = req.path_without_query();
 
     log!(info, "request received",
@@ -188,9 +188,12 @@ fn handler(_req: &Request) -> Response {
 
 ```rust
 fn handler(req: &Request) -> Response {
-    let trace_id = req.trace_id()
-        .map(String::from)
-        .unwrap_or_else(|| random::uuid());
+    let incoming_trace = req.trace_id_or("");
+    let trace_id = if incoming_trace.is_empty() {
+        random::uuid()
+    } else {
+        incoming_trace.to_string()
+    };
 
     log!(info, "starting request", trace_id: &trace_id);
 

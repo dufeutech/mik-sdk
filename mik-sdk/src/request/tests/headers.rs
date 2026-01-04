@@ -26,9 +26,9 @@ fn test_multi_value_headers() {
         HashMap::new(),
     );
 
-    // header() returns first value
-    assert_eq!(req.header("set-cookie"), Some("session=abc123"));
-    assert_eq!(req.header("content-type"), Some("text/html"));
+    // header_or() returns first value
+    assert_eq!(req.header_or("set-cookie", ""), "session=abc123");
+    assert_eq!(req.header_or("content-type", ""), "text/html");
 
     // header_all() returns all values
     let cookies = req.header_all("set-cookie");
@@ -57,9 +57,9 @@ fn test_headers_case_insensitive() {
     );
 
     // All case variations should work
-    assert_eq!(req.header("x-custom-header"), Some("value"));
-    assert_eq!(req.header("X-CUSTOM-HEADER"), Some("value"));
-    assert_eq!(req.header("X-Custom-Header"), Some("value"));
+    assert_eq!(req.header_or("x-custom-header", ""), "value");
+    assert_eq!(req.header_or("X-CUSTOM-HEADER", ""), "value");
+    assert_eq!(req.header_or("X-Custom-Header", ""), "value");
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_header_empty_value() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("x-empty"), Some(""));
+    assert_eq!(req.header_or("x-empty", "MISSING"), "");
 }
 
 #[test]
@@ -110,9 +110,9 @@ fn test_header_special_characters() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("authorization"), Some("Bearer abc123=="));
-    assert_eq!(req.header("x-custom"), Some("value with spaces"));
-    assert_eq!(req.header("accept"), Some("text/html, application/json"));
+    assert_eq!(req.header_or("authorization", ""), "Bearer abc123==");
+    assert_eq!(req.header_or("x-custom", ""), "value with spaces");
+    assert_eq!(req.header_or("accept", ""), "text/html, application/json");
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn test_duplicate_headers_different_cases() {
     // All should be accessible via any case
     let all = req.header_all("content-type");
     assert_eq!(all.len(), 3);
-    assert_eq!(req.header("content-type"), Some("text/html")); // First one
+    assert_eq!(req.header_or("content-type", ""), "text/html"); // First one
 }
 
 #[test]
@@ -151,7 +151,7 @@ fn test_content_type_variations() {
     );
 
     assert!(req.is_json()); // Should match even with charset
-    assert_eq!(req.content_type(), Some("application/json; charset=utf-8"));
+    assert_eq!(req.content_type_or(""), "application/json; charset=utf-8");
 }
 
 #[test]
@@ -263,9 +263,9 @@ fn test_header_with_valid_utf8_special_chars() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("x-unicode"), Some("café résumé naïve"));
-    assert_eq!(req.header("x-emoji"), Some("Hello 👋 World 🌍"));
-    assert_eq!(req.header("x-cjk"), Some("你好世界"));
+    assert_eq!(req.header_or("x-unicode", ""), "café résumé naïve");
+    assert_eq!(req.header_or("x-emoji", ""), "Hello 👋 World 🌍");
+    assert_eq!(req.header_or("x-cjk", ""), "你好世界");
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn test_header_lookup_preserves_original_value() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("x-whitespace"), Some(original_value));
+    assert_eq!(req.header_or("x-whitespace", ""), original_value);
 }
 
 #[test]
@@ -293,7 +293,7 @@ fn test_header_with_empty_value() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("x-empty"), Some(""));
+    assert_eq!(req.header_or("x-empty", "MISSING"), "");
 }
 
 #[test]
@@ -331,7 +331,7 @@ fn test_header_with_newlines_in_value() {
     );
 
     // Should return the value as-is (validation is done elsewhere)
-    assert_eq!(req.header("x-multiline"), Some("line1\nline2\r\nline3"));
+    assert_eq!(req.header_or("x-multiline", ""), "line1\nline2\r\nline3");
 }
 
 #[test]
@@ -361,12 +361,12 @@ fn test_trace_id_present() {
     let req = Request::new(
         Method::Get,
         "/api/data".to_string(),
-        vec![("x-trace-id".to_string(), "abc123".to_string())],
+        vec![("traceparent".to_string(), "abc123".to_string())],
         None,
         HashMap::new(),
     );
 
-    assert_eq!(req.trace_id(), Some("abc123"));
+    assert_eq!(req.trace_id_or(""), "abc123");
 }
 
 #[test]
@@ -379,7 +379,7 @@ fn test_trace_id_missing() {
         HashMap::new(),
     );
 
-    assert_eq!(req.trace_id(), None);
+    assert!(req.trace_id_or("").is_empty());
 }
 
 #[test]
@@ -387,13 +387,13 @@ fn test_trace_id_case_insensitive() {
     let req = Request::new(
         Method::Get,
         "/api/data".to_string(),
-        vec![("X-Trace-Id".to_string(), "xyz789".to_string())],
+        vec![("Traceparent".to_string(), "xyz789".to_string())],
         None,
         HashMap::new(),
     );
 
     // Header lookup is case-insensitive
-    assert_eq!(req.trace_id(), Some("xyz789"));
+    assert_eq!(req.trace_id_or(""), "xyz789");
 }
 
 #[test]
@@ -413,10 +413,10 @@ fn test_malformed_header_names() {
     );
 
     // All headers accessible via normalized (lowercase) names
-    assert_eq!(req.header(" spaces "), Some("value"));
-    assert_eq!(req.header("\t\ttabs\t\t"), Some("value"));
-    assert_eq!(req.header("123numeric"), Some("value"));
-    assert_eq!(req.header("special!@#$%"), Some("value"));
+    assert_eq!(req.header_or(" spaces ", ""), "value");
+    assert_eq!(req.header_or("\t\ttabs\t\t", ""), "value");
+    assert_eq!(req.header_or("123numeric", ""), "value");
+    assert_eq!(req.header_or("special!@#$%", ""), "value");
 }
 
 #[test]

@@ -42,9 +42,9 @@
 //! The `after_cursor` and `before_cursor` methods accept any type implementing `IntoCursor`:
 //! - `&Cursor` - Already parsed cursor
 //! - `&str` / `String` - Automatically decoded from base64
-//! - `Option<&str>` - Perfect for `req.query("after")`
+//! - `&str` with empty default - Works with `req.query_or("after", "")`
 //!
-//! Invalid or missing cursors are silently ignored, making the API resilient.
+//! Invalid or empty cursors are silently ignored, making the API resilient.
 
 mod cursor;
 mod encoding;

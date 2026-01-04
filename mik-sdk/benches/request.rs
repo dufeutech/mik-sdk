@@ -25,8 +25,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("page");
-            black_box(result.is_some())
+            let result = req.query_or("page", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -40,8 +40,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("page");
-            black_box(result.is_some())
+            let result = req.query_or("page", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -55,8 +55,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("page");
-            black_box(result.is_some())
+            let result = req.query_or("page", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -72,8 +72,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("page");
-            black_box(result.is_some())
+            let result = req.query_or("page", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -90,8 +90,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("p5");
-            black_box(result.is_some())
+            let result = req.query_or("p5", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -105,8 +105,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("q");
-            black_box(result.is_some())
+            let result = req.query_or("q", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -135,8 +135,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("q");
-            black_box(result.is_some())
+            let result = req.query_or("q", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -150,8 +150,8 @@ fn bench_query_parsing(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             );
-            let result = req.query("q");
-            black_box(result.is_some())
+            let result = req.query_or("q", "");
+            black_box(!result.is_empty())
         });
     });
 
@@ -176,22 +176,24 @@ fn bench_query_access(c: &mut Criterion) {
     );
 
     // First access triggers lazy parsing
-    let _ = req.query("page");
+    let _ = req.query_or("page", "");
 
     // Subsequent accesses use cache
     group.bench_function("hit_first_param", |b| {
-        b.iter(|| req.query(black_box("page")));
+        b.iter(|| req.query_or(black_box("page"), ""));
     });
 
     group.bench_function("hit_middle_param", |b| {
-        b.iter(|| req.query(black_box("filter")));
+        b.iter(|| req.query_or(black_box("filter"), ""));
     });
 
     group.bench_function("hit_last_param", |b| {
-        b.iter(|| req.query(black_box("fields")));
+        b.iter(|| req.query_or(black_box("fields"), ""));
     });
 
-    group.bench_function("miss", |b| b.iter(|| req.query(black_box("nonexistent"))));
+    group.bench_function("miss", |b| {
+        b.iter(|| req.query_or(black_box("nonexistent"), ""));
+    });
 
     // Array access
     let req_array = Request::new(
@@ -254,37 +256,37 @@ fn bench_header_lookup(c: &mut Criterion) {
 
     // Lowercase lookup (fast path - no allocation)
     group.bench_function("lowercase_hit", |b| {
-        b.iter(|| req.header(black_box("content-type")));
+        b.iter(|| req.header_or(black_box("content-type"), ""));
     });
 
     group.bench_function("lowercase_miss", |b| {
-        b.iter(|| req.header(black_box("x-nonexistent")));
+        b.iter(|| req.header_or(black_box("x-nonexistent"), ""));
     });
 
     // Mixed case lookup (slow path - needs lowercase allocation)
     group.bench_function("mixed_case_hit", |b| {
-        b.iter(|| req.header(black_box("Content-Type")));
+        b.iter(|| req.header_or(black_box("Content-Type"), ""));
     });
 
     group.bench_function("uppercase_hit", |b| {
-        b.iter(|| req.header(black_box("CONTENT-TYPE")));
+        b.iter(|| req.header_or(black_box("CONTENT-TYPE"), ""));
     });
 
     // Header at different positions
     group.bench_function("first_header", |b| {
-        b.iter(|| req.header(black_box("content-type")));
+        b.iter(|| req.header_or(black_box("content-type"), ""));
     });
 
     group.bench_function("middle_header", |b| {
-        b.iter(|| req.header(black_box("x-request-id")));
+        b.iter(|| req.header_or(black_box("x-request-id"), ""));
     });
 
     group.bench_function("last_header", |b| {
-        b.iter(|| req.header(black_box("cache-control")));
+        b.iter(|| req.header_or(black_box("cache-control"), ""));
     });
 
     // Trace ID (common operation)
-    group.bench_function("trace_id", |b| b.iter(|| req.trace_id()));
+    group.bench_function("trace_id", |b| b.iter(|| req.trace_id_or("")));
 
     group.finish();
 }
@@ -363,11 +365,11 @@ fn bench_path_params(c: &mut Criterion) {
     );
 
     group.bench_function("single_param_hit", |b| {
-        b.iter(|| req_single.param(black_box("id")));
+        b.iter(|| req_single.param_or(black_box("id"), ""));
     });
 
     group.bench_function("single_param_miss", |b| {
-        b.iter(|| req_single.param(black_box("missing")));
+        b.iter(|| req_single.param_or(black_box("missing"), ""));
     });
 
     // Multiple path parameters
@@ -386,15 +388,15 @@ fn bench_path_params(c: &mut Criterion) {
     );
 
     group.bench_function("multi_param_first", |b| {
-        b.iter(|| req_multi.param(black_box("org_id")));
+        b.iter(|| req_multi.param_or(black_box("org_id"), ""));
     });
 
     group.bench_function("multi_param_middle", |b| {
-        b.iter(|| req_multi.param(black_box("user_id")));
+        b.iter(|| req_multi.param_or(black_box("user_id"), ""));
     });
 
     group.bench_function("multi_param_last", |b| {
-        b.iter(|| req_multi.param(black_box("post_id")));
+        b.iter(|| req_multi.param_or(black_box("post_id"), ""));
     });
 
     // No path parameters
@@ -407,7 +409,7 @@ fn bench_path_params(c: &mut Criterion) {
     );
 
     group.bench_function("no_params_miss", |b| {
-        b.iter(|| req_none.param(black_box("id")));
+        b.iter(|| req_none.param_or(black_box("id"), ""));
     });
 
     group.finish();

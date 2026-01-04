@@ -26,8 +26,8 @@ use mik_sdk::prelude::*;
 ```rust
 /// Extract bearer token from Authorization header
 fn get_bearer_token(req: &Request) -> Option<&str> {
-    req.header("Authorization")
-        .and_then(|h| h.strip_prefix("Bearer "))
+    let auth = req.header_or("authorization", "");
+    auth.strip_prefix("Bearer ")
 }
 
 fn protected_endpoint(req: &Request) -> Response {
@@ -72,9 +72,12 @@ fn admin_endpoint(req: &Request) -> Response {
 ```rust
 /// Get or generate a request ID for tracing
 fn get_request_id(req: &Request) -> String {
-    req.trace_id()
-        .map(String::from)
-        .unwrap_or_else(|| random::uuid())
+    let trace_id = req.trace_id_or("");
+    if trace_id.is_empty() {
+        random::uuid()
+    } else {
+        trace_id.to_string()
+    }
 }
 
 fn handler(req: &Request) -> Response {
@@ -276,7 +279,7 @@ fn log_request(req: &Request, action: &str) {
     log!(info, action,
         method: format!("{:?}", req.method()),
         path: req.path_without_query(),
-        trace_id: req.trace_id().unwrap_or("unknown")
+        trace_id: req.trace_id_or("unknown")
     );
 }
 
@@ -284,7 +287,7 @@ fn log_response(req: &Request, status: u16, duration_ms: u64) {
     log!(info, "response",
         status: status,
         duration_ms: duration_ms,
-        trace_id: req.trace_id().unwrap_or("unknown")
+        trace_id: req.trace_id_or("unknown")
     );
 }
 ```
@@ -297,7 +300,7 @@ fn log_error(req: &Request, error: &str, context: &str) {
         error: error,
         context: context,
         path: req.path_without_query(),
-        trace_id: req.trace_id().unwrap_or("unknown")
+        trace_id: req.trace_id_or("unknown")
     );
 }
 ```

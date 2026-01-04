@@ -122,27 +122,27 @@ pub struct QueryExample {
 
 ## Request Methods
 
-| Method                 | Returns             | Description               |
-| ---------------------- | ------------------- | ------------------------- |
-| `method()`             | `Method`            | HTTP method               |
-| `path()`               | `&str`              | Full path with query      |
-| `path_without_query()` | `&str`              | Path only                 |
-| `param(name)`          | `Option<&str>`      | Path parameter            |
-| `query(name)`          | `Option<&str>`      | Query parameter           |
-| `query_all(name)`      | `&[String]`         | All query values          |
-| `header(name)`         | `Option<&str>`      | Header (case-insensitive) |
-| `header_all(name)`     | `Vec<&str>`         | All header values         |
-| `trace_id()`           | `Option<&str>`      | x-trace-id header         |
-| `body()`               | `Option<&[u8]>`     | Raw body bytes            |
-| `text()`               | `Option<&str>`      | Body as UTF-8             |
-| `json()`               | `Option<JsonValue>` | Parse as JSON             |
-| `json_with(parser)`    | `Option<T>`         | Parse with custom parser  |
-| `has_body()`           | `bool`              | True if non-empty         |
-| `content_type()`       | `Option<&str>`      | Content-Type header       |
-| `is_json()`            | `bool`              | Content-Type is JSON      |
-| `is_form()`            | `bool`              | Content-Type is form      |
-| `form(name)`           | `Option<&str>`      | Form field value          |
-| `form_all(name)`       | `&[String]`         | All form values           |
+| Method                   | Returns             | Description               |
+| ------------------------ | ------------------- | ------------------------- |
+| `method()`               | `Method`            | HTTP method               |
+| `path()`                 | `&str`              | Full path with query      |
+| `path_without_query()`   | `&str`              | Path only                 |
+| `param_or(name, def)`    | `&str`              | Path parameter            |
+| `query_or(name, def)`    | `&str`              | Query parameter           |
+| `query_all(name)`        | `&[String]`         | All query values          |
+| `header_or(name, def)`   | `&str`              | Header (case-insensitive) |
+| `header_all(name)`       | `Vec<&str>`         | All header values         |
+| `trace_id_or(def)`       | `&str`              | traceparent header        |
+| `body()`                 | `Option<&[u8]>`     | Raw body bytes            |
+| `text()`                 | `Option<&str>`      | Body as UTF-8             |
+| `json()`                 | `Option<JsonValue>` | Parse as JSON             |
+| `json_with(parser)`      | `Option<T>`         | Parse with custom parser  |
+| `has_body()`             | `bool`              | True if non-empty         |
+| `content_type_or(def)`   | `&str`              | Content-Type header       |
+| `is_json()`              | `bool`              | Content-Type is JSON      |
+| `is_form()`              | `bool`              | Content-Type is form      |
+| `form_or(name, def)`     | `&str`              | Form field value          |
+| `form_all(name)`         | `&[String]`         | All form values           |
 
 ## JSON Module
 
@@ -287,8 +287,9 @@ fetch!(GET &user_url)
     .send()?;
 
 // Trace propagation
+let trace_id = req.trace_id_or("");
 fetch!(GET "https://api.example.com")
-    .with_trace_id(req.trace_id())
+    .with_trace_id(if trace_id.is_empty() { None } else { Some(trace_id) })
     .send()?;
 
 // Response handling

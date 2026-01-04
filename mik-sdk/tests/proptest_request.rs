@@ -27,10 +27,10 @@ proptest! {
             HashMap::new(),
         );
 
-        let parsed = req.query(&key);
+        let parsed = req.query_or(&key, "");
         prop_assert_eq!(
             parsed,
-            Some(value.as_str()),
+            value.as_str(),
             "Key should have value: {}", key
         );
     }
@@ -52,8 +52,8 @@ proptest! {
             HashMap::new(),
         );
 
-        prop_assert_eq!(req.query(&k1), Some(v1.as_str()));
-        prop_assert_eq!(req.query(&k2), Some(v2.as_str()));
+        prop_assert_eq!(req.query_or(&k1, ""), v1.as_str());
+        prop_assert_eq!(req.query_or(&k2, ""), v2.as_str());
     }
 
     /// Missing keys should return None
@@ -71,7 +71,7 @@ proptest! {
             HashMap::new(),
         );
 
-        prop_assert!(req.query(&missing_key).is_none());
+        prop_assert!(req.query_or(&missing_key, "").is_empty());
     }
 
     /// URL-encoded query values should decode
@@ -86,7 +86,7 @@ proptest! {
             HashMap::new(),
         );
 
-        prop_assert_eq!(req.query(&key), Some("hello world"));
+        prop_assert_eq!(req.query_or(&key, ""), "hello world");
     }
 }
 
@@ -110,9 +110,9 @@ proptest! {
         );
 
         // Should work with original case
-        prop_assert_eq!(req.header(&name.to_lowercase()), Some(value.as_str()));
+        prop_assert_eq!(req.header_or(&name.to_lowercase(), ""), value.as_str());
         // Should work with uppercase
-        prop_assert_eq!(req.header(&name.to_uppercase()), Some(value.as_str()));
+        prop_assert_eq!(req.header_or(&name.to_uppercase(), ""), value.as_str());
     }
 
     /// Multiple header values should be accessible
@@ -162,7 +162,7 @@ proptest! {
         // path() returns just the path portion (before ?)
         let expected_prefix = format!("/{path_segment}");
         prop_assert!(req.path().starts_with(&expected_prefix));
-        prop_assert_eq!(req.query(&query_key), Some(query_val.as_str()));
+        prop_assert_eq!(req.query_or(&query_key, ""), query_val.as_str());
     }
 
     /// Paths without query should have no query params
@@ -177,7 +177,7 @@ proptest! {
             HashMap::new(),
         );
 
-        prop_assert!(req.query("anything").is_none());
+        prop_assert!(req.query_or("anything", "").is_empty());
     }
 }
 
@@ -264,7 +264,7 @@ proptest! {
 
         // Just access everything - should not panic
         let _ = req.path();
-        let _ = req.query("test");
+        let _ = req.query_or("test", "");
         let _ = req.query_all("test");
     }
 
@@ -282,7 +282,7 @@ proptest! {
             HashMap::new(),
         );
 
-        let _ = req.header(&name);
+        let _ = req.header_or(&name, "");
         let _ = req.header_all(&name);
     }
 

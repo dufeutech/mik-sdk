@@ -139,6 +139,7 @@ fn github_user(path: UsernamePath, req: &Request) -> Response {
     log!(info, "fetching github user", username: &path.username);
 
     // Make the request - just call .send()!
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET &url,
         headers: {
             "User-Agent": "mik-sdk-example/0.1.0",
@@ -146,7 +147,11 @@ fn github_user(path: UsernamePath, req: &Request) -> Response {
         },
         timeout: 5000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    })
     .send();
 
     // Handle the response
@@ -217,11 +222,16 @@ fn proxy(query: ProxyQuery, req: &Request) -> Response {
 
     // CRITICAL: Use deny_private_ips() when the URL comes from user input!
     // This prevents Server-Side Request Forgery (SSRF) attacks.
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET &query.url,
         timeout: 10000
     )
     .deny_private_ips() // Block requests to localhost, 10.x, 192.168.x, etc.
-    .with_trace_id(req.trace_id())
+    .with_trace_id(if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    })
     .send();
 
     let response = match result {
@@ -284,6 +294,7 @@ fn send_webhook(body: WebhookPayload, req: &Request) -> Response {
 
     log!(info, "sending webhook", event: &body.event);
 
+    let trace_id = req.trace_id_or("");
     let result = fetch!(POST webhook_url,
         headers: {
             "Content-Type": "application/json",
@@ -296,7 +307,11 @@ fn send_webhook(body: WebhookPayload, req: &Request) -> Response {
         },
         timeout: 5000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    })
     .send();
 
     match result {
@@ -336,12 +351,18 @@ fn aggregate(req: &Request) -> Response {
 
     // Note: In WASM, we can't do truly parallel requests.
     // These are sequential, but demonstrate the pattern.
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    };
 
     // Call 1: Get a UUID from httpbin
     let uuid_result = fetch!(GET "https://httpbin.org/uuid",
         timeout: 3000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(trace_opt)
     .send();
 
     let uuid = match uuid_result {
@@ -361,7 +382,7 @@ fn aggregate(req: &Request) -> Response {
         },
         timeout: 3000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(trace_opt)
     .send();
 
     let host = match headers_result {
@@ -378,7 +399,7 @@ fn aggregate(req: &Request) -> Response {
     let ip_result = fetch!(GET "https://httpbin.org/ip",
         timeout: 3000
     )
-    .with_trace_id(req.trace_id())
+    .with_trace_id(trace_opt)
     .send();
 
     let origin_ip = match ip_result {
@@ -407,8 +428,13 @@ fn aggregate(req: &Request) -> Response {
 fn fetch_local_get(query: FetchLocalQuery, req: &Request) -> Response {
     log!(info, "fetch-local GET", url: &query.url);
 
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET &query.url, timeout: 5000)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(if trace_id.is_empty() {
+            None
+        } else {
+            Some(trace_id)
+        })
         .send();
 
     handle_fetch_result(result)
@@ -420,9 +446,15 @@ fn fetch_local_post(body: FetchLocalBody, req: &Request) -> Response {
 
     let method = body.method.as_deref().unwrap_or("POST").to_uppercase();
 
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    };
     let result = match method.as_str() {
         "GET" => fetch!(GET &body.url, timeout: 5000)
-            .with_trace_id(req.trace_id())
+            .with_trace_id(trace_opt)
             .send(),
         "POST" => {
             if let Some(ref json_body) = body.body {
@@ -430,11 +462,11 @@ fn fetch_local_post(body: FetchLocalBody, req: &Request) -> Response {
                     .header("Content-Type", "application/json")
                     .body(json_body.as_bytes())
                     .timeout_ms(5000)
-                    .with_trace_id(req.trace_id())
+                    .with_trace_id(trace_opt)
                     .send()
             } else {
                 fetch!(POST &body.url, timeout: 5000)
-                    .with_trace_id(req.trace_id())
+                    .with_trace_id(trace_opt)
                     .send()
             }
         },
@@ -444,18 +476,18 @@ fn fetch_local_post(body: FetchLocalBody, req: &Request) -> Response {
                     .header("Content-Type", "application/json")
                     .body(json_body.as_bytes())
                     .timeout_ms(5000)
-                    .with_trace_id(req.trace_id())
+                    .with_trace_id(trace_opt)
                     .send()
             } else {
                 http_client::put(&body.url)
                     .timeout_ms(5000)
-                    .with_trace_id(req.trace_id())
+                    .with_trace_id(trace_opt)
                     .send()
             }
         },
         "DELETE" => http_client::delete(&body.url)
             .timeout_ms(5000)
-            .with_trace_id(req.trace_id())
+            .with_trace_id(trace_opt)
             .send(),
         _ => {
             return error! {

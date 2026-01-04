@@ -309,8 +309,8 @@ The `Request` parameter is always available for accessing:
 ```rust
 fn create_user(body: CreateInput, req: &Request) -> Response {
     // Access raw request
-    let auth = req.header("Authorization");
-    let trace_id = req.trace_id();
+    let auth = req.header_or("authorization", "");
+    let trace_id = req.trace_id_or("");
 
     // Use typed input
     ok!({ "name": body.name })

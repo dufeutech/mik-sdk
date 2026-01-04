@@ -164,10 +164,10 @@ ok!(json!(typed_struct))
 
 ```rust
 // Path parameter
-let name = req.path("name").unwrap_or("default");
+let name = req.param_or("name", "default");
 
 // Query parameter
-let page = req.query("page").unwrap_or("1");
+let page = req.query_or("page", "1");
 
 // Parse JSON body
 let data: MyType = req.json()?;

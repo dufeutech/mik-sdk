@@ -56,7 +56,7 @@
 //! │  │  }                                                │  │
 //! │  │                                                   │  │
 //! │  │  fn get_user(req: &Request) -> Response {         │  │
-//! │  │      let id = req.param("id").unwrap();           │  │
+//! │  │      let id = req.param_or("id", "");             │  │
 //! │  │      ok!({ "id": str(id) })                       │  │
 //! │  │  }                                                │  │
 //! │  └───────────────────────────────────────────────────┘  │
@@ -95,7 +95,7 @@
 //! }
 //!
 //! fn hello(req: &Request) -> http::Response {
-//!     let name = req.param("name").unwrap_or("world");
+//!     let name = req.param_or("name", "world");
 //!     ok!({
 //!         "greeting": str(format!("Hello, {}!", name))
 //!     })
@@ -136,19 +136,19 @@
 //!
 //! ```ignore
 //! // Path parameters (from route pattern)
-//! let id = req.param("id");              // Option<&str>
+//! let id = req.param_or("id", "");           // &str with default
 //!
 //! // Query parameters
-//! let page = req.query("page");          // Option<&str> - first value
-//! let tags = req.query_all("tag");       // &[String] - all values
+//! let page = req.query_or("page", "1");      // &str with default
+//! let tags = req.query_all("tag");           // &[String] - all values
 //!
 //! // Example: /search?tag=rust&tag=wasm&tag=http
-//! req.query("tag")      // → Some("rust")
-//! req.query_all("tag")  // → &["rust", "wasm", "http"]
+//! req.query_or("tag", "")  // → "rust"
+//! req.query_all("tag")     // → &["rust", "wasm", "http"]
 //!
 //! // Headers (case-insensitive)
-//! let auth = req.header("Authorization");    // Option<&str>
-//! let cookies = req.header_all("Set-Cookie"); // &[String]
+//! let auth = req.header_or("authorization", ""); // &str with default
+//! let cookies = req.header_all("set-cookie");    // Vec<&str>
 //!
 //! // Body
 //! let bytes = req.body();                // Option<&[u8]>

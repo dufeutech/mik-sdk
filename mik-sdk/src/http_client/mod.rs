@@ -886,7 +886,7 @@ mod tests {
         assert!(
             headers
                 .iter()
-                .any(|(k, v)| k == "X-Trace-Id" && v == "abc123")
+                .any(|(k, v)| k == "traceparent" && v == "abc123")
         );
     }
 
@@ -896,7 +896,7 @@ mod tests {
             ClientRequest::new(Method::Get, "https://api.example.com/data").with_trace_id(None);
 
         let headers = req.headers();
-        assert!(!headers.iter().any(|(k, _)| k == "X-Trace-Id"));
+        assert!(!headers.iter().any(|(k, _)| k == "traceparent"));
     }
 
     #[test]
@@ -915,7 +915,7 @@ mod tests {
         assert!(
             headers
                 .iter()
-                .any(|(k, v)| k == "X-Trace-Id" && v == "trace-xyz")
+                .any(|(k, v)| k == "traceparent" && v == "trace-xyz")
         );
         assert!(
             headers

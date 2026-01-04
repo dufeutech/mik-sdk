@@ -20,7 +20,7 @@ use syn::{
 ///
 /// ```ignore
 /// fn create_user(req: &Request) -> handler::Response {
-///     let name = req.param("name").unwrap_or_default();
+///     let name = req.param_or("name", "");
 ///
 ///     guard!(!name.is_empty(), 400, "Name is required");
 ///     guard!(name.len() <= 100, 400, "Name too long");

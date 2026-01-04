@@ -14,7 +14,7 @@ fn test_param_not_found() {
             .collect(),
     );
 
-    assert_eq!(req.param("id"), Some("123"));
-    assert_eq!(req.param("missing"), None);
-    assert_eq!(req.param(""), None);
+    assert_eq!(req.param_or("id", ""), "123");
+    assert!(req.param_or("missing", "").is_empty());
+    assert!(req.param_or("", "").is_empty());
 }

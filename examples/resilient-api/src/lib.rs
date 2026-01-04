@@ -145,6 +145,12 @@ fn retry_demo(req: &Request) -> Response {
     // This endpoint sometimes fails (simulated with httpbin's status endpoint)
     // In real usage, you'd retry on network errors or 5xx responses
     let url = "https://httpbin.org/get";
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    };
 
     let mut attempts = 0u32;
 
@@ -154,7 +160,7 @@ fn retry_demo(req: &Request) -> Response {
         log!(debug, "attempt", number: attempts, max: MAX_RETRIES);
 
         let result = fetch!(GET url, timeout: TIMEOUT_MS)
-            .with_trace_id(req.trace_id())
+            .with_trace_id(trace_opt)
             .send();
 
         match result {
@@ -257,8 +263,13 @@ fn fallback_demo(req: &Request) -> Response {
 fn try_primary_source(req: &Request) -> Option<(String, String)> {
     log!(debug, "trying primary source");
 
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET "https://httpbin.org/get", timeout: 2000)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(if trace_id.is_empty() {
+            None
+        } else {
+            Some(trace_id)
+        })
         .send();
 
     match result {
@@ -283,8 +294,13 @@ fn try_primary_source(req: &Request) -> Option<(String, String)> {
 fn try_secondary_source(req: &Request) -> Option<(String, String)> {
     log!(debug, "trying secondary source");
 
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET "https://httpbin.org/get", timeout: 2000)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(if trace_id.is_empty() {
+            None
+        } else {
+            Some(trace_id)
+        })
         .send();
 
     match result {
@@ -320,20 +336,27 @@ fn aggregate_demo(req: &Request) -> Response {
     let mut results: Vec<(String, String)> = Vec::new();
     let mut errors: Vec<(String, String)> = Vec::new();
 
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    };
+
     // Source 1: UUID service
-    match fetch_source("uuid", "https://httpbin.org/uuid", req) {
+    match fetch_source("uuid", "https://httpbin.org/uuid", trace_opt) {
         Ok(data) => results.push(("uuid".to_string(), data)),
         Err(reason) => errors.push(("uuid".to_string(), reason)),
     }
 
     // Source 2: Headers echo
-    match fetch_source("headers", "https://httpbin.org/headers", req) {
+    match fetch_source("headers", "https://httpbin.org/headers", trace_opt) {
         Ok(data) => results.push(("headers".to_string(), data)),
         Err(reason) => errors.push(("headers".to_string(), reason)),
     }
 
     // Source 3: IP address
-    match fetch_source("ip", "https://httpbin.org/ip", req) {
+    match fetch_source("ip", "https://httpbin.org/ip", trace_opt) {
         Ok(data) => results.push(("ip".to_string(), data)),
         Err(reason) => errors.push(("ip".to_string(), reason)),
     }
@@ -383,11 +406,11 @@ fn aggregate_demo(req: &Request) -> Response {
     }
 }
 
-fn fetch_source(name: &str, url: &str, req: &Request) -> Result<String, String> {
+fn fetch_source(name: &str, url: &str, trace_id: Option<&str>) -> Result<String, String> {
     log!(debug, "fetching source", name: name);
 
     let result = fetch!(GET url, timeout: 3000)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(trace_id)
         .send();
 
     match result {
@@ -417,8 +440,13 @@ fn rate_limit_demo(req: &Request) -> Response {
     log!(info, "starting rate limit demo");
 
     // httpbin's /status/429 simulates a rate-limited response
+    let trace_id = req.trace_id_or("");
     let result = fetch!(GET "https://httpbin.org/status/429", timeout: TIMEOUT_MS)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(if trace_id.is_empty() {
+            None
+        } else {
+            Some(trace_id)
+        })
         .send();
 
     match result {
@@ -505,16 +533,22 @@ fn health_check(req: &Request) -> Response {
 
     let mut dependencies: Vec<(String, bool, Option<i64>, Option<String>)> = Vec::new();
     let mut all_healthy = true;
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() {
+        None
+    } else {
+        Some(trace_id)
+    };
 
     // Check dependency 1: Primary API
-    let (healthy, latency, error) = check_dependency("https://httpbin.org/get", req);
+    let (healthy, latency, error) = check_dependency("https://httpbin.org/get", trace_opt);
     if !healthy {
         all_healthy = false;
     }
     dependencies.push(("primary-api".to_string(), healthy, latency, error));
 
     // Check dependency 2: Secondary API
-    let (healthy, latency, error) = check_dependency("https://httpbin.org/get", req);
+    let (healthy, latency, error) = check_dependency("https://httpbin.org/get", trace_opt);
     if !healthy {
         all_healthy = false;
     }
@@ -558,11 +592,11 @@ fn health_check(req: &Request) -> Response {
     }
 }
 
-fn check_dependency(url: &str, req: &Request) -> (bool, Option<i64>, Option<String>) {
+fn check_dependency(url: &str, trace_id: Option<&str>) -> (bool, Option<i64>, Option<String>) {
     let start = time::now_millis();
 
     let result = fetch!(GET url, timeout: 2000)
-        .with_trace_id(req.trace_id())
+        .with_trace_id(trace_id)
         .send();
 
     #[allow(clippy::cast_possible_wrap)]

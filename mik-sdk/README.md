@@ -132,15 +132,15 @@ let resp = fetch!(GET &user_url)
 ## Request Helpers
 
 ```rust
-req.param("id")          // Path parameter: Option<&str>
-req.query("page")        // Query parameter: Option<&str>
-req.header("auth")       // Header (case-insensitive): Option<&str>
-req.body()               // Raw body: Option<&[u8]>
-req.text()               // Body as UTF-8: Option<&str>
-req.is_json()            // Content-Type is JSON: bool
-req.is_html()            // Content-Type is HTML: bool
-req.is_form()            // Content-Type is form: bool
-req.accepts("json")      // Accept header check: bool
+req.param_or("id", "0")       // Path parameter with default: &str
+req.query_or("page", "1")     // Query parameter with default: &str
+req.header_or("auth", "")     // Header with default: &str
+req.body()                    // Raw body: Option<&[u8]>
+req.text()                    // Body as UTF-8: Option<&str>
+req.is_json()                 // Content-Type is JSON: bool
+req.is_html()                 // Content-Type is HTML: bool
+req.is_form()                 // Content-Type is form: bool
+req.accepts("json")           // Accept header check: bool
 ```
 
 ## Type Inference
@@ -224,26 +224,26 @@ Type hints available for explicit control: `str()`, `int()`, `float()`, `bool()`
 
 ### Request Methods
 
-| Method              | Returns             |
-| ------------------- | ------------------- |
-| `param(name)`       | `Option<&str>`      |
-| `query(name)`       | `Option<&str>`      |
-| `query_all(name)`   | `&[String]`         |
-| `header(name)`      | `Option<&str>`      |
-| `header_all(name)`  | `Vec<&str>`         |
-| `trace_id()`        | `Option<&str>`      |
-| `body()`            | `Option<&[u8]>`     |
-| `text()`            | `Option<&str>`      |
-| `json()`            | `Option<JsonValue>` |
-| `json_with(parser)` | `Option<T>`         |
-| `form(name)`        | `Option<&str>`      |
-| `form_all(name)`    | `&[String]`         |
-| `is_json()`         | `bool`              |
-| `is_form()`         | `bool`              |
-| `is_html()`         | `bool`              |
-| `accepts(mime)`     | `bool`              |
-| `has_body()`        | `bool`              |
-| `content_type()`    | `Option<&str>`      |
+| Method                      | Returns             |
+| --------------------------- | ------------------- |
+| `param_or(name, default)`   | `&str`              |
+| `query_or(name, default)`   | `&str`              |
+| `query_all(name)`           | `&[String]`         |
+| `header_or(name, default)`  | `&str`              |
+| `header_all(name)`          | `Vec<&str>`         |
+| `trace_id_or(default)`      | `&str`              |
+| `body()`                    | `Option<&[u8]>`     |
+| `text()`                    | `Option<&str>`      |
+| `json()`                    | `Option<JsonValue>` |
+| `json_with(parser)`         | `Option<T>`         |
+| `form_or(name, default)`    | `&str`              |
+| `form_all(name)`            | `&[String]`         |
+| `is_json()`                 | `bool`              |
+| `is_form()`                 | `bool`              |
+| `is_html()`                 | `bool`              |
+| `accepts(mime)`             | `bool`              |
+| `has_body()`                | `bool`              |
+| `content_type_or(default)`  | `&str`              |
 
 ### Logging
 

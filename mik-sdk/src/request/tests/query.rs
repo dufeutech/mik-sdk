@@ -18,9 +18,9 @@ fn test_request_basics() {
     assert_eq!(req.method(), Method::Get);
     assert_eq!(req.path(), "/users/123?page=2");
     assert_eq!(req.path_without_query(), "/users/123");
-    assert_eq!(req.param("id"), Some("123"));
-    assert_eq!(req.query("page"), Some("2"));
-    assert_eq!(req.header("Content-Type"), Some("application/json"));
+    assert_eq!(req.param_or("id", ""), "123");
+    assert_eq!(req.query_or("page", ""), "2");
+    assert_eq!(req.header_or("Content-Type", ""), "application/json");
     assert!(req.is_json());
     assert_eq!(req.text(), Some("{}"));
 }
@@ -36,9 +36,9 @@ fn test_query_array_params() {
         HashMap::new(),
     );
 
-    // query() returns first value
-    assert_eq!(req.query("tag"), Some("rust"));
-    assert_eq!(req.query("page"), Some("1"));
+    // query_or() returns first value
+    assert_eq!(req.query_or("tag", ""), "rust");
+    assert_eq!(req.query_or("page", ""), "1");
 
     // query_all() returns all values
     let tags = req.query_all("tag");
@@ -54,7 +54,7 @@ fn test_query_array_params() {
 
     // Non-existent param
     assert_eq!(req.query_all("missing").len(), 0);
-    assert_eq!(req.query("missing"), None);
+    assert!(req.query_or("missing", "").is_empty());
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_query_array_with_encoding() {
 
     let ids = req.query_all("ids");
     assert_eq!(ids, &["1", "2", "3"]);
-    assert_eq!(req.query("name"), Some("hello world"));
+    assert_eq!(req.query_or("name", ""), "hello world");
 }
 
 #[test]
@@ -84,10 +84,10 @@ fn test_malformed_query_string() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("key"), Some("value"));
-    assert_eq!(req.query("broken"), Some("")); // Key without value
-    assert_eq!(req.query(""), Some("nokey")); // Empty key with value
-    assert_eq!(req.query("key2"), Some("")); // Key with empty value
+    assert_eq!(req.query_or("key", "MISSING"), "value");
+    assert_eq!(req.query_or("broken", "MISSING"), ""); // Key without value
+    assert_eq!(req.query_or("", "MISSING"), "nokey"); // Empty key with value
+    assert_eq!(req.query_or("key2", "MISSING"), ""); // Key with empty value
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_query_empty_string() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("anything"), None);
+    assert!(req.query_or("anything", "").is_empty());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_query_no_query_string() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("anything"), None);
+    assert!(req.query_or("anything", "").is_empty());
     assert_eq!(req.query_all("anything").len(), 0);
 }
 
@@ -127,8 +127,8 @@ fn test_query_special_characters() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("q"), Some("hello&world"));
-    assert_eq!(req.query("name"), Some("a=b"));
+    assert_eq!(req.query_or("q", ""), "hello&world");
+    assert_eq!(req.query_or("name", ""), "a=b");
 }
 
 #[test]
@@ -142,8 +142,8 @@ fn test_unicode_query_params() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("q"), Some("中文"));
-    assert_eq!(req.query("emoji"), Some("🎉"));
+    assert_eq!(req.query_or("q", ""), "中文");
+    assert_eq!(req.query_or("emoji", ""), "🎉");
 }
 
 #[test]
@@ -157,8 +157,8 @@ fn test_query_with_unicode_keys() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("名前"), Some("value")); // Japanese "name"
-    assert_eq!(req.query("emoji😀"), Some("test"));
+    assert_eq!(req.query_or("名前", ""), "value"); // Japanese "name"
+    assert_eq!(req.query_or("emoji😀", ""), "test");
 }
 
 #[test]
@@ -177,27 +177,32 @@ fn test_many_query_params() {
         HashMap::new(),
     );
 
-    assert_eq!(req.query("key0"), Some("value0"));
-    assert_eq!(req.query("key999"), Some("value999"));
+    assert_eq!(req.query_or("key0", ""), "value0");
+    assert_eq!(req.query_or("key999", ""), "value999");
 }
 
 #[test]
 fn test_malformed_query_string_edge_cases() {
     // Various malformed query strings
+    // Using "MISSING" as default to distinguish between "not present" and "present but empty"
     let test_cases = [
-        ("?", None),                // Just question mark
-        ("??", None),               // Double question mark
-        ("?=", None),               // Empty key with empty value - key "a" not present
-        ("?===", None),             // Multiple equals - key "" not "a"
-        ("?&&&", None),             // Just ampersands
-        ("?a&b&c", Some("")),       // Keys without values - "a" exists with empty value
-        ("?a=1&&b=2", Some("1")),   // Double ampersand
-        ("?a=1&=2&b=3", Some("1")), // Empty key in middle
+        ("?", "MISSING"),     // Just question mark
+        ("??", "MISSING"),    // Double question mark
+        ("?=", "MISSING"),    // Empty key with empty value - key "a" not present
+        ("?===", "MISSING"),  // Multiple equals - key "" not "a"
+        ("?&&&", "MISSING"),  // Just ampersands
+        ("?a&b&c", ""),       // Keys without values - "a" exists with empty value
+        ("?a=1&&b=2", "1"),   // Double ampersand
+        ("?a=1&=2&b=3", "1"), // Empty key in middle
     ];
 
     for (path, expected_a) in test_cases {
         let req = Request::new(Method::Get, path.to_string(), vec![], None, HashMap::new());
-        assert_eq!(req.query("a"), expected_a, "Failed for path: {path}");
+        assert_eq!(
+            req.query_or("a", "MISSING"),
+            expected_a,
+            "Failed for path: {path}"
+        );
     }
 }
 
@@ -246,7 +251,9 @@ fn test_control_chars_in_query() {
     );
 
     // Should not panic
-    let _queries: Vec<_> = (1..32u8).map(|c| req.query(&format!("c{c}"))).collect();
+    let _queries: Vec<_> = (1..32u8)
+        .map(|c| req.query_or(&format!("c{c}"), ""))
+        .collect();
 }
 
 #[test]
@@ -261,6 +268,6 @@ fn test_query_param_injection() {
     );
 
     // URL decoding happens
-    assert_eq!(req.query("cmd"), Some("ls -la"));
-    assert_eq!(req.query("file"), Some("/etc/passwd"));
+    assert_eq!(req.query_or("cmd", ""), "ls -la");
+    assert_eq!(req.query_or("file", ""), "/etc/passwd");
 }

@@ -114,12 +114,15 @@ fn transform_api_response(resp: &http_client::Response) -> Option<Response> {
 ```rust
 fn aggregate_user_data(user_id: &str, req: &Request) -> Response {
     // Parallel requests to different services
+    let trace_id = req.trace_id_or("");
+    let trace_opt = if trace_id.is_empty() { None } else { Some(trace_id) };
+
     let profile = fetch!(GET format!("http://profiles:8080/users/{}", user_id))
-        .with_trace_id(req.trace_id())
+        .with_trace_id(trace_opt)
         .send();
 
     let orders = fetch!(GET format!("http://orders:8080/users/{}/orders", user_id))
-        .with_trace_id(req.trace_id())
+        .with_trace_id(trace_opt)
         .send();
 
     let profile_data = match profile {
@@ -176,8 +179,8 @@ fn get_with_cache(key: &str, fetch_fn: impl Fn() -> Option<String>) -> Response 
 
 ```rust
 fn validate_request(req: &Request) -> Result<UserContext, Response> {
-    let token = req.header("Authorization")
-        .and_then(|h| h.strip_prefix("Bearer "))
+    let auth = req.header_or("authorization", "");
+    let token = auth.strip_prefix("Bearer ")
         .ok_or_else(|| error! {
             status: 401,
             title: "Unauthorized",
@@ -274,7 +277,7 @@ fn check_rate_limit(client_id: &str) -> bool {
 }
 
 fn rate_limited_endpoint(req: &Request) -> Response {
-    let client_id = req.header("X-Client-ID").unwrap_or("anonymous");
+    let client_id = req.header_or("x-client-id", "anonymous");
 
     if !check_rate_limit(client_id) {
         return error! {
@@ -293,8 +296,8 @@ fn rate_limited_endpoint(req: &Request) -> Response {
 ```rust
 fn handle_webhook(body: WebhookInput, req: &Request) -> Response {
     // Verify webhook signature
-    let signature = req.header("X-Webhook-Signature");
-    guard!(signature.is_some(), 401, "Missing signature");
+    let signature = req.header_or("x-webhook-signature", "");
+    guard!(!signature.is_empty(), 401, "Missing signature");
 
     // Process based on event type
     match body.event_type.as_str() {

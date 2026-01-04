@@ -24,7 +24,7 @@ fn test_header_crlf_injection_in_value() {
     );
 
     // The value is stored as-is - HTTP layer should validate
-    let value = req.header("x-test").unwrap();
+    let value = req.header_or("x-test", "");
     assert!(value.contains('\r') || value.contains('\n') || value == "value\r\nX-Injected: hacked");
 }
 
@@ -39,7 +39,7 @@ fn test_header_null_byte_in_value() {
         HashMap::new(),
     );
 
-    let value = req.header("x-test").unwrap();
+    let value = req.header_or("x-test", "");
     assert!(value.contains('\0'));
 }
 
@@ -59,7 +59,7 @@ fn test_header_very_long_value() {
     );
 
     // Value is still accessible (we just log warnings)
-    assert_eq!(req.header("x-long").unwrap().len(), 100_000);
+    assert_eq!(req.header_or("x-long", "").len(), 100_000);
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_header_value_at_limit() {
         HashMap::new(),
     );
 
-    assert_eq!(req.header("x-atlimit").unwrap().len(), MAX_HEADER_VALUE_LEN);
+    assert_eq!(req.header_or("x-atlimit", "").len(), MAX_HEADER_VALUE_LEN);
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_header_value_just_over_limit() {
 
     // Value is still accessible
     assert_eq!(
-        req.header("x-overlimit").unwrap().len(),
+        req.header_or("x-overlimit", "").len(),
         MAX_HEADER_VALUE_LEN + 1
     );
 }
@@ -111,8 +111,8 @@ fn test_total_headers_size_limit() {
     let req = Request::new(Method::Get, "/".to_string(), headers, None, HashMap::new());
 
     // All headers are still accessible (we just log warnings)
-    assert_eq!(req.header("x-header-0").unwrap().len(), 1024);
-    assert_eq!(req.header("x-header-1099").unwrap().len(), 1024);
+    assert_eq!(req.header_or("x-header-0", "").len(), 1024);
+    assert_eq!(req.header_or("x-header-1099", "").len(), 1024);
 }
 
 #[test]
@@ -134,15 +134,15 @@ fn test_multiple_oversized_headers() {
 
     // All values still accessible
     assert_eq!(
-        req.header("x-oversized-1").unwrap().len(),
+        req.header_or("x-oversized-1", "").len(),
         MAX_HEADER_VALUE_LEN + 100
     );
     assert_eq!(
-        req.header("x-oversized-2").unwrap().len(),
+        req.header_or("x-oversized-2", "").len(),
         MAX_HEADER_VALUE_LEN + 100
     );
     assert_eq!(
-        req.header("x-oversized-3").unwrap().len(),
+        req.header_or("x-oversized-3", "").len(),
         MAX_HEADER_VALUE_LEN + 100
     );
 }
@@ -157,8 +157,8 @@ fn test_header_many_headers() {
     let req = Request::new(Method::Get, "/".to_string(), headers, None, HashMap::new());
 
     // All headers should be accessible
-    assert_eq!(req.header("x-header-0"), Some("value-0"));
-    assert_eq!(req.header("x-header-999"), Some("value-999"));
+    assert_eq!(req.header_or("x-header-0", ""), "value-0");
+    assert_eq!(req.header_or("x-header-999", ""), "value-999");
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn test_header_empty_name() {
     );
 
     // Empty name header should be accessible
-    assert_eq!(req.header(""), Some("value"));
+    assert_eq!(req.header_or("", ""), "value");
 }
 
 #[test]
@@ -211,9 +211,9 @@ fn test_header_control_characters() {
     );
 
     // Control chars preserved in values
-    assert!(req.header("x-tab").unwrap().contains('\t'));
-    assert!(req.header("x-bell").unwrap().contains('\x07'));
-    assert!(req.header("x-escape").unwrap().contains('\x1B'));
+    assert!(req.header_or("x-tab", "").contains('\t'));
+    assert!(req.header_or("x-bell", "").contains('\x07'));
+    assert!(req.header_or("x-escape", "").contains('\x1B'));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -267,8 +267,8 @@ fn test_path_with_query_injection() {
     );
 
     assert_eq!(req.path_without_query(), "/page");
-    assert_eq!(req.query("id"), Some("1"));
-    assert_eq!(req.query("evil"), Some("../../etc/passwd"));
+    assert_eq!(req.query_or("id", ""), "1");
+    assert_eq!(req.query_or("evil", ""), "../../etc/passwd");
 }
 
 #[test]
@@ -285,7 +285,7 @@ fn test_path_param_traversal() {
     );
 
     // Params are stored as-is - application must validate
-    assert_eq!(req.param("filename"), Some("../../../etc/passwd"));
+    assert_eq!(req.param_or("filename", ""), "../../../etc/passwd");
 }
 
 #[test]
@@ -337,7 +337,7 @@ fn test_very_long_query_value() {
 
     // URL decoding rejects values exceeding MAX_URL_DECODED_LEN for defense-in-depth
     // Such values are silently dropped (not stored)
-    assert_eq!(req.query("data"), None);
+    assert!(req.query_or("data", "").is_empty());
 }
 
 #[test]
@@ -369,6 +369,6 @@ fn test_null_in_various_places() {
 
     // All should be accessible without panic
     assert!(req.path().contains('\0'));
-    assert!(req.header("header\0name").is_some());
-    assert!(req.param("param\0key").is_some());
+    assert!(!req.header_or("header\0name", "").is_empty());
+    assert!(!req.param_or("param\0key", "").is_empty());
 }

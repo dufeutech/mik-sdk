@@ -197,13 +197,14 @@ struct AuthUser {
 /// Returns `Ok(AuthUser)` if valid, `Err(Response)` with error otherwise.
 fn authenticate(req: &Request) -> Result<AuthUser, Response> {
     // Get Authorization header
-    let auth_header = req.header("authorization").ok_or_else(|| {
-        error! {
+    let auth_header = req.header_or("authorization", "");
+    if auth_header.is_empty() {
+        return Err(error! {
             status: status::UNAUTHORIZED,
             title: "Unauthorized",
             detail: "Missing Authorization header"
-        }
-    })?;
+        });
+    }
 
     // Check Bearer scheme
     let token = auth_header.strip_prefix("Bearer ").ok_or_else(|| {
