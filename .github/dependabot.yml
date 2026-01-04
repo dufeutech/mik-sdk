@@ -27,3 +27,7 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 3
+    ignore:
+      # The @ref for dtolnay/rust-toolchain is the Rust version (e.g., @1.89),
+      # not an action version. Dependabot incorrectly tries to bump it.
+      - dependency-name: "dtolnay/rust-toolchain"
