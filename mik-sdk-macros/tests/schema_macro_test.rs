@@ -2,8 +2,16 @@
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
     clippy::cast_sign_loss,
-    clippy::unwrap_used,       // Test code uses unwrap for assertions
-    clippy::indexing_slicing   // Test code uses indexing for assertions
+    clippy::cast_possible_wrap,
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    clippy::doc_markdown,
+    clippy::struct_field_names,
+    clippy::approx_constant,
+    clippy::too_many_lines,
+    clippy::option_if_let_else,
+    clippy::use_self,
+    clippy::redundant_closure_for_method_calls
 )]
 //! Tests for the derive macros (Type, Query, Path) and their generated code.
 //!
@@ -322,9 +330,124 @@ mod mik_sdk {
             JsonValue::from_str(s)
         }
 
-        /// Trait for converting to JSON (used by enum derive)
+        /// Create a JSON object builder
+        pub fn obj() -> JsonValue {
+            JsonValue::from_object(HashMap::new())
+        }
+
+        impl JsonValue {
+            /// Set a key-value pair in the object (builder pattern)
+            pub fn set(mut self, key: &str, value: Self) -> Self {
+                if let JsonData::Object(ref mut obj) = self.data {
+                    obj.insert(key.to_string(), value);
+                }
+                self
+            }
+
+            /// Convert to bytes (for response body)
+            pub fn to_bytes(&self) -> Vec<u8> {
+                // Simple JSON serialization for testing
+                self.to_json_string().into_bytes()
+            }
+
+            fn to_json_string(&self) -> String {
+                match &self.data {
+                    JsonData::Null => "null".to_string(),
+                    JsonData::Bool(b) => b.to_string(),
+                    JsonData::Int(n) => n.to_string(),
+                    JsonData::Float(f) => f.to_string(),
+                    JsonData::String(s) => {
+                        format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+                    },
+                    JsonData::Array(arr) => {
+                        let items: Vec<_> = arr.iter().map(|v| v.to_json_string()).collect();
+                        format!("[{}]", items.join(","))
+                    },
+                    JsonData::Object(obj) => {
+                        let items: Vec<_> = obj
+                            .iter()
+                            .map(|(k, v)| format!("\"{}\":{}", k, v.to_json_string()))
+                            .collect();
+                        format!("{{{}}}", items.join(","))
+                    },
+                }
+            }
+        }
+
+        /// Trait for converting to JSON (used by derive macros)
         pub trait ToJson {
             fn to_json(&self) -> JsonValue;
+        }
+
+        // ToJson implementations for primitive types
+        impl ToJson for String {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_str(self)
+            }
+        }
+
+        impl ToJson for &str {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_str(self)
+            }
+        }
+
+        impl ToJson for i32 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(i64::from(*self))
+            }
+        }
+
+        impl ToJson for i64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(*self)
+            }
+        }
+
+        impl ToJson for u32 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(i64::from(*self))
+            }
+        }
+
+        impl ToJson for u64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(*self as i64)
+            }
+        }
+
+        impl ToJson for f64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_float(*self)
+            }
+        }
+
+        impl ToJson for bool {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_bool(*self)
+            }
+        }
+
+        impl<T: ToJson> ToJson for Option<T> {
+            fn to_json(&self) -> JsonValue {
+                match self {
+                    Some(v) => v.to_json(),
+                    None => JsonValue::null(),
+                }
+            }
+        }
+
+        impl<T: ToJson> ToJson for Vec<T> {
+            fn to_json(&self) -> JsonValue {
+                let arr: Vec<JsonValue> = self.iter().map(ToJson::to_json).collect();
+                JsonValue::from_array(arr)
+            }
+        }
+
+        impl<T: ToJson> ToJson for &T {
+            fn to_json(&self) -> JsonValue {
+                (*self).to_json()
+            }
         }
     }
 }
@@ -359,6 +482,17 @@ fn test_type_derive_basic() {
     assert!(schema.contains("object"));
     assert!(schema.contains("name"));
     assert!(schema.contains("age"));
+
+    // Test ToJson
+    let user = User {
+        name: "Bob".to_string(),
+        age: 25,
+    };
+    let json = mik_sdk::json::ToJson::to_json(&user);
+    let bytes = json.to_bytes();
+    let json_str = String::from_utf8(bytes).unwrap();
+    assert!(json_str.contains("\"name\":\"Bob\""));
+    assert!(json_str.contains("\"age\":25"));
 }
 
 #[test]
@@ -396,6 +530,28 @@ fn test_type_derive_optional_fields() {
     let profile = <Profile as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
     assert_eq!(profile.name, "Bob");
     assert_eq!(profile.bio, None);
+
+    // Test ToJson with Some value
+    let profile = Profile {
+        name: "Charlie".to_string(),
+        bio: Some("Developer".to_string()),
+    };
+    let json = mik_sdk::json::ToJson::to_json(&profile);
+    let bytes = json.to_bytes();
+    let json_str = String::from_utf8(bytes).unwrap();
+    assert!(json_str.contains("\"name\":\"Charlie\""));
+    assert!(json_str.contains("\"bio\":\"Developer\""));
+
+    // Test ToJson with None value
+    let profile = Profile {
+        name: "Diana".to_string(),
+        bio: None,
+    };
+    let json = mik_sdk::json::ToJson::to_json(&profile);
+    let bytes = json.to_bytes();
+    let json_str = String::from_utf8(bytes).unwrap();
+    assert!(json_str.contains("\"name\":\"Diana\""));
+    assert!(json_str.contains("\"bio\":null"));
 }
 
 #[test]
@@ -480,6 +636,46 @@ fn test_type_derive_vec_field() {
     assert_eq!(tags.items.len(), 2);
     assert_eq!(tags.items[0], "rust");
     assert_eq!(tags.items[1], "wasm");
+
+    // Test ToJson with Vec field
+    let tags = Tags {
+        items: vec!["go".to_string(), "python".to_string(), "java".to_string()],
+    };
+    let json = mik_sdk::json::ToJson::to_json(&tags);
+    let bytes = json.to_bytes();
+    let json_str = String::from_utf8(bytes).unwrap();
+    assert!(json_str.contains("\"items\":[\"go\",\"python\",\"java\"]"));
+}
+
+/// Test ToJson with nested structs
+#[test]
+fn test_type_derive_nested_to_json() {
+    #[derive(Type)]
+    struct Address {
+        city: String,
+        country: String,
+    }
+
+    #[derive(Type)]
+    struct Person {
+        name: String,
+        address: Address,
+    }
+
+    let person = Person {
+        name: "Eve".to_string(),
+        address: Address {
+            city: "Paris".to_string(),
+            country: "France".to_string(),
+        },
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&person);
+    let bytes = json.to_bytes();
+    let json_str = String::from_utf8(bytes).unwrap();
+    assert!(json_str.contains("\"name\":\"Eve\""));
+    assert!(json_str.contains("\"city\":\"Paris\""));
+    assert!(json_str.contains("\"country\":\"France\""));
 }
 
 // =============================================================================
@@ -2499,6 +2695,1224 @@ fn test_type_openapi_deprecated_false_not_included() {
     assert!(
         !schema.contains("\"deprecated\""),
         "deprecated:false should be omitted, got: {schema}"
+    );
+}
+
+// =============================================================================
+// COMPREHENSIVE ToJson SERIALIZATION TESTS
+// =============================================================================
+// These tests verify ToJson works correctly for all type combinations:
+// - Deep nesting (structs within structs)
+// - Enums (unit variants)
+// - Vec<T> of custom types
+// - Option<T> of custom types
+// - Combinations: Vec<Option<T>>, Option<Vec<T>>, etc.
+// - All primitive types
+// - Complex real-world response structures
+
+/// Test deeply nested structs (4 levels) with ToJson roundtrip
+#[test]
+fn test_to_json_deeply_nested_4_levels() {
+    #[derive(Type)]
+    struct Coordinate {
+        x: f64,
+        y: f64,
+    }
+
+    #[derive(Type)]
+    struct Location {
+        name: String,
+        coords: Coordinate,
+    }
+
+    #[derive(Type)]
+    struct Building {
+        address: String,
+        location: Location,
+    }
+
+    #[derive(Type)]
+    struct Company {
+        name: String,
+        headquarters: Building,
+    }
+
+    let company = Company {
+        name: "Acme Corp".to_string(),
+        headquarters: Building {
+            address: "123 Main St".to_string(),
+            location: Location {
+                name: "Downtown".to_string(),
+                coords: Coordinate {
+                    x: 40.7128,
+                    y: -74.006,
+                },
+            },
+        },
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&company);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Verify all nested fields are present
+    assert!(
+        json_str.contains("\"name\":\"Acme Corp\""),
+        "Should have company name"
+    );
+    assert!(
+        json_str.contains("\"address\":\"123 Main St\""),
+        "Should have building address"
+    );
+    assert!(
+        json_str.contains("\"name\":\"Downtown\""),
+        "Should have location name"
+    );
+    assert!(
+        json_str.contains("\"x\":40.7128"),
+        "Should have x coordinate"
+    );
+    assert!(
+        json_str.contains("\"y\":-74.006"),
+        "Should have y coordinate"
+    );
+}
+
+/// Test enum ToJson serialization
+#[test]
+fn test_to_json_enum_basic() {
+    #[derive(Type)]
+    enum Status {
+        Active,
+        Pending,
+        Suspended,
+    }
+
+    let active = Status::Active;
+    let pending = Status::Pending;
+    let suspended = Status::Suspended;
+
+    let json_active = mik_sdk::json::ToJson::to_json(&active);
+    let json_pending = mik_sdk::json::ToJson::to_json(&pending);
+    let json_suspended = mik_sdk::json::ToJson::to_json(&suspended);
+
+    assert_eq!(
+        String::from_utf8(json_active.to_bytes()).unwrap(),
+        "\"active\""
+    );
+    assert_eq!(
+        String::from_utf8(json_pending.to_bytes()).unwrap(),
+        "\"pending\""
+    );
+    assert_eq!(
+        String::from_utf8(json_suspended.to_bytes()).unwrap(),
+        "\"suspended\""
+    );
+}
+
+/// Test enum with rename attribute in ToJson
+#[test]
+fn test_to_json_enum_with_rename() {
+    #[derive(Type)]
+    enum Priority {
+        #[field(rename = "LOW")]
+        Low,
+        #[field(rename = "MEDIUM")]
+        Medium,
+        #[field(rename = "HIGH")]
+        High,
+    }
+
+    let low = Priority::Low;
+    let medium = Priority::Medium;
+    let high = Priority::High;
+
+    assert_eq!(
+        String::from_utf8(mik_sdk::json::ToJson::to_json(&low).to_bytes()).unwrap(),
+        "\"LOW\""
+    );
+    assert_eq!(
+        String::from_utf8(mik_sdk::json::ToJson::to_json(&medium).to_bytes()).unwrap(),
+        "\"MEDIUM\""
+    );
+    assert_eq!(
+        String::from_utf8(mik_sdk::json::ToJson::to_json(&high).to_bytes()).unwrap(),
+        "\"HIGH\""
+    );
+}
+
+/// Test struct containing enum field
+#[test]
+fn test_to_json_struct_with_enum_field() {
+    #[derive(Type)]
+    enum OrderStatus {
+        Pending,
+        Shipped,
+        Delivered,
+    }
+
+    #[derive(Type)]
+    struct Order {
+        id: String,
+        status: OrderStatus,
+        total: i32,
+    }
+
+    let order = Order {
+        id: "ORD-123".to_string(),
+        status: OrderStatus::Shipped,
+        total: 9999,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&order);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"id\":\"ORD-123\""),
+        "Should have order id"
+    );
+    assert!(
+        json_str.contains("\"status\":\"shipped\""),
+        "Should have status as string"
+    );
+    assert!(json_str.contains("\"total\":9999"), "Should have total");
+}
+
+/// Test Vec of custom structs
+#[test]
+fn test_to_json_vec_of_structs() {
+    #[derive(Type)]
+    struct Tag {
+        id: i32,
+        name: String,
+    }
+
+    #[derive(Type)]
+    struct Article {
+        title: String,
+        tags: Vec<Tag>,
+    }
+
+    let article = Article {
+        title: "My Article".to_string(),
+        tags: vec![
+            Tag {
+                id: 1,
+                name: "rust".to_string(),
+            },
+            Tag {
+                id: 2,
+                name: "wasm".to_string(),
+            },
+            Tag {
+                id: 3,
+                name: "sdk".to_string(),
+            },
+        ],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&article);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"title\":\"My Article\""),
+        "Should have title"
+    );
+    assert!(json_str.contains("\"id\":1"), "Should have first tag id");
+    assert!(
+        json_str.contains("\"name\":\"rust\""),
+        "Should have first tag name"
+    );
+    assert!(json_str.contains("\"id\":2"), "Should have second tag id");
+    assert!(
+        json_str.contains("\"name\":\"wasm\""),
+        "Should have second tag name"
+    );
+    assert!(json_str.contains("\"id\":3"), "Should have third tag id");
+}
+
+/// Test Vec of enums
+#[test]
+fn test_to_json_vec_of_enums() {
+    #[derive(Type)]
+    enum Permission {
+        Read,
+        Write,
+        Delete,
+        Admin,
+    }
+
+    #[derive(Type)]
+    struct User {
+        name: String,
+        permissions: Vec<Permission>,
+    }
+
+    let user = User {
+        name: "Alice".to_string(),
+        permissions: vec![Permission::Read, Permission::Write, Permission::Admin],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&user);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"name\":\"Alice\""),
+        "Should have user name"
+    );
+    assert!(json_str.contains("\"read\""), "Should have read permission");
+    assert!(
+        json_str.contains("\"write\""),
+        "Should have write permission"
+    );
+    assert!(
+        json_str.contains("\"admin\""),
+        "Should have admin permission"
+    );
+}
+
+/// Test Option of struct (Some and None)
+#[test]
+fn test_to_json_option_of_struct() {
+    #[derive(Type)]
+    struct Metadata {
+        version: String,
+        author: String,
+    }
+
+    #[derive(Type)]
+    struct Document {
+        title: String,
+        metadata: Option<Metadata>,
+    }
+
+    // With Some
+    let doc_with_meta = Document {
+        title: "Guide".to_string(),
+        metadata: Some(Metadata {
+            version: "1.0.0".to_string(),
+            author: "John".to_string(),
+        }),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&doc_with_meta);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"title\":\"Guide\""),
+        "Should have title"
+    );
+    assert!(
+        json_str.contains("\"version\":\"1.0.0\""),
+        "Should have version"
+    );
+    assert!(
+        json_str.contains("\"author\":\"John\""),
+        "Should have author"
+    );
+
+    // With None
+    let doc_without_meta = Document {
+        title: "Draft".to_string(),
+        metadata: None,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&doc_without_meta);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"title\":\"Draft\""),
+        "Should have title"
+    );
+    assert!(
+        json_str.contains("\"metadata\":null"),
+        "Should have null metadata"
+    );
+}
+
+/// Test Option of enum
+#[test]
+fn test_to_json_option_of_enum() {
+    #[derive(Type)]
+    enum Role {
+        Guest,
+        Member,
+        Moderator,
+    }
+
+    #[derive(Type)]
+    struct Account {
+        username: String,
+        role: Option<Role>,
+    }
+
+    // With Some
+    let account_with_role = Account {
+        username: "bob".to_string(),
+        role: Some(Role::Moderator),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&account_with_role);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"username\":\"bob\""),
+        "Should have username"
+    );
+    assert!(
+        json_str.contains("\"role\":\"moderator\""),
+        "Should have role"
+    );
+
+    // With None
+    let account_without_role = Account {
+        username: "guest123".to_string(),
+        role: None,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&account_without_role);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"username\":\"guest123\""),
+        "Should have username"
+    );
+    assert!(json_str.contains("\"role\":null"), "Should have null role");
+}
+
+/// Test Option<Vec<T>> combination
+#[test]
+fn test_to_json_option_of_vec() {
+    #[derive(Type)]
+    struct SearchResult {
+        query: String,
+        results: Option<Vec<String>>,
+    }
+
+    // With Some containing items
+    let with_results = SearchResult {
+        query: "rust".to_string(),
+        results: Some(vec![
+            "rustc".to_string(),
+            "cargo".to_string(),
+            "rustup".to_string(),
+        ]),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&with_results);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(json_str.contains("\"query\":\"rust\""), "Should have query");
+    assert!(json_str.contains("\"rustc\""), "Should have first result");
+    assert!(json_str.contains("\"cargo\""), "Should have second result");
+    assert!(json_str.contains("\"rustup\""), "Should have third result");
+
+    // With Some containing empty Vec
+    let with_empty = SearchResult {
+        query: "xyz".to_string(),
+        results: Some(vec![]),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&with_empty);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"results\":[]"),
+        "Should have empty array"
+    );
+
+    // With None
+    let with_none = SearchResult {
+        query: "missing".to_string(),
+        results: None,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&with_none);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"results\":null"),
+        "Should have null results"
+    );
+}
+
+/// Test Vec<Option<T>> combination
+#[test]
+fn test_to_json_vec_of_option() {
+    #[derive(Type)]
+    struct Scores {
+        name: String,
+        values: Vec<Option<i32>>,
+    }
+
+    let scores = Scores {
+        name: "test".to_string(),
+        values: vec![Some(100), None, Some(85), None, Some(92)],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&scores);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(json_str.contains("\"name\":\"test\""), "Should have name");
+    assert!(
+        json_str.contains("[100,null,85,null,92]"),
+        "Should have mixed array with nulls"
+    );
+}
+
+/// Test all primitive types together
+#[test]
+fn test_to_json_all_primitives() {
+    #[derive(Type)]
+    struct AllPrimitives {
+        string_val: String,
+        i32_val: i32,
+        i64_val: i64,
+        u32_val: u32,
+        u64_val: u64,
+        f64_val: f64,
+        bool_val: bool,
+    }
+
+    let data = AllPrimitives {
+        string_val: "hello".to_string(),
+        i32_val: -42,
+        i64_val: 9_223_372_036_854_775_807,
+        u32_val: 4_294_967_295,
+        u64_val: 18_446_744_073_709_551_615,
+        f64_val: 3.14159,
+        bool_val: true,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&data);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"string_val\":\"hello\""),
+        "Should have string"
+    );
+    assert!(
+        json_str.contains("\"i32_val\":-42"),
+        "Should have negative i32"
+    );
+    assert!(
+        json_str.contains("\"i64_val\":9223372036854775807"),
+        "Should have max i64"
+    );
+    assert!(
+        json_str.contains("\"u32_val\":4294967295"),
+        "Should have max u32"
+    );
+    assert!(json_str.contains("\"bool_val\":true"), "Should have bool");
+    assert!(
+        json_str.contains("\"f64_val\":3.14159"),
+        "Should have float"
+    );
+}
+
+/// Test complex real-world API response structure
+#[test]
+fn test_to_json_complex_api_response() {
+    #[derive(Type)]
+    enum ItemStatus {
+        Draft,
+        Published,
+        Archived,
+    }
+
+    #[derive(Type)]
+    struct Author {
+        id: i64,
+        name: String,
+        verified: bool,
+    }
+
+    #[derive(Type)]
+    struct Comment {
+        id: i64,
+        text: String,
+        author: Author,
+    }
+
+    #[derive(Type)]
+    struct Item {
+        id: String,
+        title: String,
+        status: ItemStatus,
+        author: Author,
+        comments: Vec<Comment>,
+        parent_id: Option<String>,
+        tags: Vec<String>,
+        view_count: i64,
+        rating: Option<f64>,
+    }
+
+    #[derive(Type)]
+    struct PageInfo {
+        has_next: bool,
+        has_previous: bool,
+        total_count: i64,
+    }
+
+    #[derive(Type)]
+    struct ApiResponse {
+        success: bool,
+        data: Vec<Item>,
+        page_info: PageInfo,
+        error: Option<String>,
+    }
+
+    let response = ApiResponse {
+        success: true,
+        data: vec![
+            Item {
+                id: "item-001".to_string(),
+                title: "First Post".to_string(),
+                status: ItemStatus::Published,
+                author: Author {
+                    id: 1,
+                    name: "Alice".to_string(),
+                    verified: true,
+                },
+                comments: vec![
+                    Comment {
+                        id: 101,
+                        text: "Great post!".to_string(),
+                        author: Author {
+                            id: 2,
+                            name: "Bob".to_string(),
+                            verified: false,
+                        },
+                    },
+                    Comment {
+                        id: 102,
+                        text: "Thanks for sharing".to_string(),
+                        author: Author {
+                            id: 3,
+                            name: "Charlie".to_string(),
+                            verified: true,
+                        },
+                    },
+                ],
+                parent_id: None,
+                tags: vec!["rust".to_string(), "tutorial".to_string()],
+                view_count: 1500,
+                rating: Some(4.8),
+            },
+            Item {
+                id: "item-002".to_string(),
+                title: "Second Post".to_string(),
+                status: ItemStatus::Draft,
+                author: Author {
+                    id: 1,
+                    name: "Alice".to_string(),
+                    verified: true,
+                },
+                comments: vec![],
+                parent_id: Some("item-001".to_string()),
+                tags: vec![],
+                view_count: 0,
+                rating: None,
+            },
+        ],
+        page_info: PageInfo {
+            has_next: true,
+            has_previous: false,
+            total_count: 42,
+        },
+        error: None,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&response);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Verify top-level fields
+    assert!(json_str.contains("\"success\":true"), "Should have success");
+    assert!(
+        json_str.contains("\"error\":null"),
+        "Should have null error"
+    );
+
+    // Verify page info
+    assert!(
+        json_str.contains("\"has_next\":true"),
+        "Should have has_next"
+    );
+    assert!(
+        json_str.contains("\"total_count\":42"),
+        "Should have total_count"
+    );
+
+    // Verify first item
+    assert!(
+        json_str.contains("\"id\":\"item-001\""),
+        "Should have first item id"
+    );
+    assert!(
+        json_str.contains("\"title\":\"First Post\""),
+        "Should have first title"
+    );
+    assert!(
+        json_str.contains("\"status\":\"published\""),
+        "Should have status"
+    );
+    assert!(
+        json_str.contains("\"view_count\":1500"),
+        "Should have view_count"
+    );
+    assert!(json_str.contains("\"rating\":4.8"), "Should have rating");
+
+    // Verify nested author
+    assert!(
+        json_str.contains("\"name\":\"Alice\""),
+        "Should have author name"
+    );
+    assert!(
+        json_str.contains("\"verified\":true"),
+        "Should have verified"
+    );
+
+    // Verify comments
+    assert!(
+        json_str.contains("\"text\":\"Great post!\""),
+        "Should have comment text"
+    );
+    assert!(
+        json_str.contains("\"name\":\"Bob\""),
+        "Should have commenter name"
+    );
+
+    // Verify second item
+    assert!(
+        json_str.contains("\"id\":\"item-002\""),
+        "Should have second item id"
+    );
+    assert!(
+        json_str.contains("\"status\":\"draft\""),
+        "Should have draft status"
+    );
+    assert!(
+        json_str.contains("\"parent_id\":\"item-001\""),
+        "Should have parent_id"
+    );
+    assert!(
+        json_str.contains("\"rating\":null"),
+        "Second item should have null rating"
+    );
+}
+
+/// Test empty Vec serialization
+#[test]
+fn test_to_json_empty_vec() {
+    #[derive(Type)]
+    struct EmptyContainer {
+        name: String,
+        items: Vec<String>,
+    }
+
+    let container = EmptyContainer {
+        name: "empty".to_string(),
+        items: vec![],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&container);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(json_str.contains("\"items\":[]"), "Should have empty array");
+}
+
+/// Test Vec of nested structs with enums
+#[test]
+fn test_to_json_vec_of_nested_with_enums() {
+    #[derive(Type)]
+    enum TaskPriority {
+        Low,
+        Medium,
+        High,
+        Critical,
+    }
+
+    #[derive(Type)]
+    enum TaskState {
+        Todo,
+        InProgress,
+        Done,
+    }
+
+    #[derive(Type)]
+    struct Assignee {
+        id: i64,
+        email: String,
+    }
+
+    #[derive(Type)]
+    struct Task {
+        id: String,
+        title: String,
+        priority: TaskPriority,
+        state: TaskState,
+        assignee: Option<Assignee>,
+        subtasks: Vec<Task>,
+    }
+
+    #[derive(Type)]
+    struct Project {
+        name: String,
+        tasks: Vec<Task>,
+    }
+
+    let project = Project {
+        name: "SDK Development".to_string(),
+        tasks: vec![
+            Task {
+                id: "task-1".to_string(),
+                title: "Implement ToJson".to_string(),
+                priority: TaskPriority::High,
+                state: TaskState::Done,
+                assignee: Some(Assignee {
+                    id: 1,
+                    email: "dev@example.com".to_string(),
+                }),
+                subtasks: vec![
+                    Task {
+                        id: "task-1-1".to_string(),
+                        title: "Add struct support".to_string(),
+                        priority: TaskPriority::Medium,
+                        state: TaskState::Done,
+                        assignee: None,
+                        subtasks: vec![],
+                    },
+                    Task {
+                        id: "task-1-2".to_string(),
+                        title: "Add enum support".to_string(),
+                        priority: TaskPriority::Medium,
+                        state: TaskState::Done,
+                        assignee: None,
+                        subtasks: vec![],
+                    },
+                ],
+            },
+            Task {
+                id: "task-2".to_string(),
+                title: "Write tests".to_string(),
+                priority: TaskPriority::Critical,
+                state: TaskState::InProgress,
+                assignee: Some(Assignee {
+                    id: 2,
+                    email: "qa@example.com".to_string(),
+                }),
+                subtasks: vec![],
+            },
+        ],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&project);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Verify project
+    assert!(
+        json_str.contains("\"name\":\"SDK Development\""),
+        "Should have project name"
+    );
+
+    // Verify first task
+    assert!(json_str.contains("\"id\":\"task-1\""), "Should have task-1");
+    assert!(
+        json_str.contains("\"priority\":\"high\""),
+        "Should have high priority"
+    );
+    assert!(
+        json_str.contains("\"state\":\"done\""),
+        "Should have done state"
+    );
+
+    // Verify subtasks
+    assert!(
+        json_str.contains("\"id\":\"task-1-1\""),
+        "Should have subtask"
+    );
+    assert!(
+        json_str.contains("\"title\":\"Add struct support\""),
+        "Should have subtask title"
+    );
+
+    // Verify assignee
+    assert!(
+        json_str.contains("\"email\":\"dev@example.com\""),
+        "Should have assignee email"
+    );
+
+    // Verify second task with in_progress state
+    assert!(
+        json_str.contains("\"state\":\"in_progress\""),
+        "Should have in_progress state"
+    );
+    assert!(
+        json_str.contains("\"priority\":\"critical\""),
+        "Should have critical priority"
+    );
+}
+
+/// Test struct with field rename in ToJson
+#[test]
+fn test_to_json_struct_with_rename() {
+    #[derive(Type)]
+    struct UserProfile {
+        #[field(rename = "firstName")]
+        first_name: String,
+        #[field(rename = "lastName")]
+        last_name: String,
+        #[field(rename = "emailAddress")]
+        email: String,
+    }
+
+    let profile = UserProfile {
+        first_name: "John".to_string(),
+        last_name: "Doe".to_string(),
+        email: "john.doe@example.com".to_string(),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&profile);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Should use renamed keys
+    assert!(
+        json_str.contains("\"firstName\":\"John\""),
+        "Should use firstName"
+    );
+    assert!(
+        json_str.contains("\"lastName\":\"Doe\""),
+        "Should use lastName"
+    );
+    assert!(
+        json_str.contains("\"emailAddress\":\"john.doe@example.com\""),
+        "Should use emailAddress"
+    );
+
+    // Should NOT use Rust field names
+    assert!(
+        !json_str.contains("\"first_name\""),
+        "Should not use first_name"
+    );
+    assert!(
+        !json_str.contains("\"last_name\""),
+        "Should not use last_name"
+    );
+}
+
+/// Test Vec<Vec<T>> - nested arrays
+#[test]
+fn test_to_json_nested_vec() {
+    #[derive(Type)]
+    struct Matrix {
+        name: String,
+        rows: Vec<Vec<i32>>,
+    }
+
+    let matrix = Matrix {
+        name: "grid".to_string(),
+        rows: vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&matrix);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(json_str.contains("\"name\":\"grid\""), "Should have name");
+    assert!(
+        json_str.contains("[[1,2,3],[4,5,6],[7,8,9]]"),
+        "Should have 2D array"
+    );
+}
+
+/// Test Vec<Vec<Struct>> - 2D array of custom structs
+#[test]
+fn test_to_json_2d_vec_of_structs() {
+    #[derive(Type)]
+    struct Cell {
+        value: i32,
+        label: String,
+    }
+
+    #[derive(Type)]
+    struct Grid {
+        cells: Vec<Vec<Cell>>,
+    }
+
+    let grid = Grid {
+        cells: vec![
+            vec![
+                Cell {
+                    value: 1,
+                    label: "A1".to_string(),
+                },
+                Cell {
+                    value: 2,
+                    label: "A2".to_string(),
+                },
+            ],
+            vec![
+                Cell {
+                    value: 3,
+                    label: "B1".to_string(),
+                },
+                Cell {
+                    value: 4,
+                    label: "B2".to_string(),
+                },
+            ],
+        ],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&grid);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"value\":1"),
+        "Should have first cell value"
+    );
+    assert!(
+        json_str.contains("\"label\":\"A1\""),
+        "Should have first cell label"
+    );
+    assert!(
+        json_str.contains("\"value\":4"),
+        "Should have last cell value"
+    );
+    assert!(
+        json_str.contains("\"label\":\"B2\""),
+        "Should have last cell label"
+    );
+}
+
+/// Test strings with special characters and unicode
+#[test]
+fn test_to_json_special_characters() {
+    #[derive(Type)]
+    struct Message {
+        content: String,
+        author: String,
+    }
+
+    let message = Message {
+        content: r#"Hello "World"! Line1\nLine2 and a backslash: \"#.to_string(),
+        author: "日本語ユーザー".to_string(), // Japanese characters
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&message);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Verify escaping works
+    assert!(json_str.contains("\\\"World\\\""), "Should escape quotes");
+    assert!(json_str.contains("\\\\"), "Should escape backslashes");
+    // Verify unicode works
+    assert!(json_str.contains("日本語ユーザー"), "Should handle unicode");
+}
+
+/// Test Option<Vec<Option<Struct>>> - deeply nested generics
+#[test]
+fn test_to_json_deeply_nested_generics() {
+    #[derive(Type)]
+    struct Score {
+        points: i32,
+    }
+
+    #[derive(Type)]
+    struct GameResult {
+        player: String,
+        rounds: Option<Vec<Option<Score>>>,
+    }
+
+    // All populated
+    let result1 = GameResult {
+        player: "Alice".to_string(),
+        rounds: Some(vec![
+            Some(Score { points: 100 }),
+            None,
+            Some(Score { points: 150 }),
+            None,
+            Some(Score { points: 200 }),
+        ]),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&result1);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"player\":\"Alice\""),
+        "Should have player"
+    );
+    assert!(
+        json_str.contains("\"points\":100"),
+        "Should have first score"
+    );
+    assert!(
+        json_str.contains("\"points\":150"),
+        "Should have third score"
+    );
+    assert!(
+        json_str.contains("null"),
+        "Should have null for skipped rounds"
+    );
+
+    // Outer None
+    let result2 = GameResult {
+        player: "Bob".to_string(),
+        rounds: None,
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&result2);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"rounds\":null"),
+        "Should have null rounds"
+    );
+}
+
+/// Test Vec<Option<Vec<T>>> - alternating nesting
+#[test]
+fn test_to_json_alternating_nested_generics() {
+    #[derive(Type)]
+    struct DataSet {
+        name: String,
+        series: Vec<Option<Vec<f64>>>,
+    }
+
+    let dataset = DataSet {
+        name: "measurements".to_string(),
+        series: vec![
+            Some(vec![1.1, 2.2, 3.3]),
+            None,
+            Some(vec![]),
+            Some(vec![4.4, 5.5]),
+        ],
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&dataset);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    assert!(
+        json_str.contains("\"name\":\"measurements\""),
+        "Should have name"
+    );
+    assert!(
+        json_str.contains("[1.1,2.2,3.3]"),
+        "Should have first series"
+    );
+    assert!(
+        json_str.contains("null"),
+        "Should have null for missing series"
+    );
+    assert!(json_str.contains("[]"), "Should have empty array");
+    assert!(json_str.contains("[4.4,5.5]"), "Should have last series");
+}
+
+/// Test circular-like type graph (A→B→C→D, all different types but complex graph)
+#[test]
+fn test_to_json_complex_type_graph() {
+    #[derive(Type)]
+    enum NodeType {
+        Root,
+        Branch,
+        Leaf,
+    }
+
+    #[derive(Type)]
+    struct Metadata {
+        created_by: String,
+        version: i32,
+    }
+
+    #[derive(Type)]
+    struct Leaf {
+        id: String,
+        value: f64,
+        metadata: Option<Metadata>,
+    }
+
+    #[derive(Type)]
+    struct Branch {
+        id: String,
+        node_type: NodeType,
+        leaves: Vec<Leaf>,
+        metadata: Metadata,
+    }
+
+    #[derive(Type)]
+    struct Tree {
+        name: String,
+        root_type: NodeType,
+        branches: Vec<Branch>,
+        orphan_leaves: Option<Vec<Leaf>>,
+    }
+
+    let tree = Tree {
+        name: "Complex Tree".to_string(),
+        root_type: NodeType::Root,
+        branches: vec![Branch {
+            id: "branch-1".to_string(),
+            node_type: NodeType::Branch,
+            leaves: vec![
+                Leaf {
+                    id: "leaf-1-1".to_string(),
+                    value: 42.5,
+                    metadata: Some(Metadata {
+                        created_by: "system".to_string(),
+                        version: 1,
+                    }),
+                },
+                Leaf {
+                    id: "leaf-1-2".to_string(),
+                    value: 99.9,
+                    metadata: None,
+                },
+            ],
+            metadata: Metadata {
+                created_by: "admin".to_string(),
+                version: 2,
+            },
+        }],
+        orphan_leaves: Some(vec![Leaf {
+            id: "orphan-1".to_string(),
+            value: 0.0,
+            metadata: None,
+        }]),
+    };
+
+    let json = mik_sdk::json::ToJson::to_json(&tree);
+    let json_str = String::from_utf8(json.to_bytes()).unwrap();
+
+    // Verify all types are serialized correctly
+    assert!(
+        json_str.contains("\"name\":\"Complex Tree\""),
+        "Should have tree name"
+    );
+    assert!(
+        json_str.contains("\"root_type\":\"root\""),
+        "Should have root enum"
+    );
+    assert!(
+        json_str.contains("\"node_type\":\"branch\""),
+        "Should have branch enum"
+    );
+    assert!(
+        json_str.contains("\"id\":\"branch-1\""),
+        "Should have branch id"
+    );
+    assert!(
+        json_str.contains("\"id\":\"leaf-1-1\""),
+        "Should have leaf id"
+    );
+    assert!(
+        json_str.contains("\"value\":42.5"),
+        "Should have leaf value"
+    );
+    assert!(
+        json_str.contains("\"created_by\":\"system\""),
+        "Should have nested metadata"
+    );
+    assert!(
+        json_str.contains("\"id\":\"orphan-1\""),
+        "Should have orphan leaf"
     );
 }
 

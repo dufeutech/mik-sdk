@@ -61,8 +61,9 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
         },
     };
 
-    // Generate from_json implementation
+    // Generate from_json and to_json implementations
     let mut from_json_fields = Vec::new();
+    let mut to_json_fields = Vec::new();
     let mut field_defs: Vec<JsonFieldDef> = Vec::new();
     let mut validation_checks: Vec<TokenStream2> = Vec::new();
     let mut nested_types: Vec<Ident> = Vec::new();
@@ -80,6 +81,12 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
             .clone()
             .unwrap_or_else(|| field_name.to_string());
         let is_optional = is_option_type(field_ty);
+
+        // Generate to_json field serialization
+        // ToJson trait handles Option/Vec/nested types automatically
+        to_json_fields.push(quote! {
+            .set(#json_key, mik_sdk::json::ToJson::to_json(&self.#field_name))
+        });
 
         // Generate from_json field extraction
         if is_optional {
@@ -263,6 +270,13 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
                 Ok(Self {
                     #(#from_json_fields),*
                 })
+            }
+        }
+
+        impl mik_sdk::json::ToJson for #name {
+            fn to_json(&self) -> mik_sdk::json::JsonValue {
+                mik_sdk::json::obj()
+                    #(#to_json_fields)*
             }
         }
 

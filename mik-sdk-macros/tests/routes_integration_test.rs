@@ -2,9 +2,14 @@
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,
-    clippy::unwrap_used,       // Test code uses unwrap for assertions
-    clippy::expect_used,       // Test code uses expect for setup
-    clippy::indexing_slicing   // Test code uses indexing for assertions
+    clippy::cast_possible_wrap,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::doc_markdown,
+    clippy::too_many_lines,
+    clippy::option_if_let_else,
+    clippy::redundant_closure_for_method_calls
 )]
 //! Integration tests for the routes! macro with typed inputs.
 //!
@@ -276,6 +281,12 @@ mod mik_sdk {
                 }
             }
 
+            pub const fn from_float(f: f64) -> Self {
+                Self {
+                    data: JsonData::Float(f),
+                }
+            }
+
             pub fn from_str(s: &str) -> Self {
                 Self {
                     data: JsonData::String(s.to_string()),
@@ -346,6 +357,128 @@ mod mik_sdk {
                     JsonData::Array(arr) => Some(arr.len()),
                     _ => None,
                 }
+            }
+
+            /// Set a key-value pair in the object (builder pattern)
+            pub fn set(mut self, key: &str, value: Self) -> Self {
+                if let JsonData::Object(ref mut obj) = self.data {
+                    obj.insert(key.to_string(), value);
+                }
+                self
+            }
+
+            /// Convert to bytes (for response body)
+            pub fn to_bytes(&self) -> Vec<u8> {
+                self.to_json_string().into_bytes()
+            }
+
+            fn to_json_string(&self) -> String {
+                match &self.data {
+                    JsonData::Null => "null".to_string(),
+                    JsonData::Bool(b) => b.to_string(),
+                    JsonData::Int(n) => n.to_string(),
+                    JsonData::Float(f) => f.to_string(),
+                    JsonData::String(s) => {
+                        format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+                    },
+                    JsonData::Array(arr) => {
+                        let items: Vec<_> = arr.iter().map(|v| v.to_json_string()).collect();
+                        format!("[{}]", items.join(","))
+                    },
+                    JsonData::Object(obj) => {
+                        let items: Vec<_> = obj
+                            .iter()
+                            .map(|(k, v)| format!("\"{}\":{}", k, v.to_json_string()))
+                            .collect();
+                        format!("{{{}}}", items.join(","))
+                    },
+                }
+            }
+        }
+
+        /// Create a JSON string value
+        pub fn str(s: &str) -> JsonValue {
+            JsonValue::from_str(s)
+        }
+
+        /// Create a JSON object builder
+        pub fn obj() -> JsonValue {
+            JsonValue::from_object(HashMap::new())
+        }
+
+        /// Trait for converting to JSON (used by derive macros)
+        pub trait ToJson {
+            fn to_json(&self) -> JsonValue;
+        }
+
+        // ToJson implementations for primitive types
+        impl ToJson for String {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_str(self)
+            }
+        }
+
+        impl ToJson for &str {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_str(self)
+            }
+        }
+
+        impl ToJson for i32 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(i64::from(*self))
+            }
+        }
+
+        impl ToJson for i64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(*self)
+            }
+        }
+
+        impl ToJson for u32 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(i64::from(*self))
+            }
+        }
+
+        impl ToJson for u64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_int(*self as i64)
+            }
+        }
+
+        impl ToJson for f64 {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_float(*self)
+            }
+        }
+
+        impl ToJson for bool {
+            fn to_json(&self) -> JsonValue {
+                JsonValue::from_bool(*self)
+            }
+        }
+
+        impl<T: ToJson> ToJson for Option<T> {
+            fn to_json(&self) -> JsonValue {
+                match self {
+                    Some(v) => v.to_json(),
+                    None => JsonValue::null(),
+                }
+            }
+        }
+
+        impl<T: ToJson> ToJson for Vec<T> {
+            fn to_json(&self) -> JsonValue {
+                let arr: Vec<JsonValue> = self.iter().map(ToJson::to_json).collect();
+                JsonValue::from_array(arr)
+            }
+        }
+
+        impl<T: ToJson> ToJson for &T {
+            fn to_json(&self) -> JsonValue {
+                (*self).to_json()
             }
         }
     }

@@ -36,6 +36,14 @@ impl mik_sdk::typed::FromJson for User {
         })
     }
 }
+impl mik_sdk::json::ToJson for User {
+    fn to_json(&self) -> mik_sdk::json::JsonValue {
+        mik_sdk::json::obj()
+            .set("name", mik_sdk::json::ToJson::to_json(&self.name))
+            .set("age", mik_sdk::json::ToJson::to_json(&self.age))
+            .set("email", mik_sdk::json::ToJson::to_json(&self.email))
+    }
+}
 impl mik_sdk::typed::Validate for User {
     fn validate(&self) -> Result<(), mik_sdk::typed::ValidationError> {
         Ok(())

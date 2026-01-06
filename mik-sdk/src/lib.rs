@@ -44,30 +44,19 @@
 //!
 //! # Architecture
 //!
+//! Two-component architecture for WASI HTTP portability:
+//!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────┐
-//! │  Your Handler                                           │
-//! │  ┌───────────────────────────────────────────────────┐  │
-//! │  │  use mik_sdk::prelude::*;                         │  │
-//! │  │                                                   │  │
-//! │  │  routes! {                                        │  │
-//! │  │      "/" => home,                                 │  │
-//! │  │      "/users/{id}" => get_user,                   │  │
-//! │  │  }                                                │  │
-//! │  │                                                   │  │
-//! │  │  fn get_user(req: &Request) -> Response {         │  │
-//! │  │      let id = req.param_or("id", "");             │  │
-//! │  │      ok!({ "id": str(id) })                       │  │
-//! │  │  }                                                │  │
-//! │  └───────────────────────────────────────────────────┘  │
+//! │  Your Handler Component                                 │
+//! │  - Uses mik_sdk::prelude::*                             │
+//! │  - Exports mik:core/handler interface                   │
 //! └─────────────────────────────────────────────────────────┘
 //!                           ↓ compose with
 //! ┌─────────────────────────────────────────────────────────┐
-//! │  Router Component (provides JSON/HTTP utilities)        │
-//! └─────────────────────────────────────────────────────────┘
-//!                           ↓ compose with
-//! ┌─────────────────────────────────────────────────────────┐
-//! │  Bridge Component (WASI HTTP adapter)                   │
+//! │  Bridge Component (mik-bridge)                          │
+//! │  - Translates WASI HTTP to mik handler                  │
+//! │  - Handles request/response conversion                  │
 //! └─────────────────────────────────────────────────────────┘
 //!                           ↓ runs on
 //! ┌─────────────────────────────────────────────────────────┐
