@@ -46,6 +46,7 @@ export default defineConfig({
           items: [
             { label: "Installation", slug: "guides/installation" },
             { label: "Quickstart", slug: "guides/quickstart" },
+            { label: "Types", slug: "guides/types" },
             { label: "Routing", slug: "guides/routing" },
             { label: "OpenAPI Schema", slug: "guides/openapi" },
             { label: "Testing", slug: "guides/testing" },
